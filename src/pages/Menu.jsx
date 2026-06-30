@@ -82,7 +82,7 @@ const opGaseosa = () => ({
 const complementos = { titulo: 'Adicionales', subtitulo: 'Opcional', items: AD }
 
 // ── Carta completa CON opciones y complementos ─────────────
-const CARTA = {
+export const CARTA = {
   Hamburguesas: {
     color: '#e63946', desc: 'Artesanales · Jugosas · Irresistibles',
     productos: [

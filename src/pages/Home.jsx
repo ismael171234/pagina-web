@@ -1,5 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useState, useEffect, useRef } from 'react'
+import { CARTA } from './Menu'
+import ProductConfiguratorModal from '../components/ProductConfiguratorModal'
 
 // Imágenes
 import hamburguesaclasica1 from '../assets/hamburguesaclasica1.png'
@@ -68,14 +70,36 @@ const POPULARES = [
 ]
 
 // ── Componente ProductCard ──────────────────────────────────
-function ProductCard({ producto, index = 0 }) {
-  const navigate = useNavigate()
+// Helper para obtener el producto completo con todas sus opciones y complementos de la CARTA centralizada
+const getFullProduct = (nombreSimplified) => {
+  const clean = (s) => s.toLowerCase()
+    .replace(/á/g, 'a').replace(/é/g, 'e').replace(/í/g, 'i').replace(/ó/g, 'o').replace(/ú/g, 'u')
+    .replace(/[^a-z0-9]/g, '')
+  
+  const searchName = clean(nombreSimplified)
+  
+  if (searchName.includes('hamburguesaclasica')) return { ...CARTA.Hamburguesas.productos.find(p => p.id === 1), color: CARTA.Hamburguesas.color }
+  if (searchName.includes('hamburguesaroyal')) return { ...CARTA.Hamburguesas.productos.find(p => p.id === 3), color: CARTA.Hamburguesas.color }
+  if (searchName.includes('browniechelado') || searchName.includes('brownieconhelado')) return { ...CARTA.Postres.productos.find(p => p.id === 37), color: CARTA.Postres.color }
+  
+  for (const catName in CARTA) {
+    const prod = CARTA[catName].productos.find(p => {
+      const cleanP = clean(p.nombre)
+      return cleanP.includes(searchName) || searchName.includes(cleanP)
+    })
+    if (prod) return { ...prod, color: CARTA[catName].color }
+  }
+  return null
+}
+
+// ── Componente ProductCard ──────────────────────────────────
+function ProductCard({ producto, index = 0, onSelect }) {
   const [ref, visible] = useReveal()
 
   return (
     <div
       ref={ref}
-      onClick={() => navigate('/menu')}
+      onClick={onSelect}
       style={{
         opacity: visible ? 1 : 0,
         transform: visible ? 'translateY(0)' : 'translateY(28px)',
@@ -105,7 +129,7 @@ function ProductCard({ producto, index = 0 }) {
         <div className="flex items-center justify-between mt-2.5">
           <p className="text-red-400 font-black text-base">{producto.precio}</p>
           <button
-            onClick={(e) => { e.stopPropagation(); navigate('/menu') }}
+            onClick={(e) => { e.stopPropagation(); onSelect() }}
             className="bg-red-600 hover:bg-red-500 active:scale-95 text-white text-xs font-black px-3.5 py-1.5 rounded-full transition-all duration-150 shadow-md"
           >
             + Pedir
@@ -238,6 +262,8 @@ function Section({ children, className = '' }) {
 // ── HOME ────────────────────────────────────────────────────
 function Home() {
   const navigate = useNavigate()
+  const [selectedProduct, setSelectedProduct] = useState(null)
+  const [activeColor, setActiveColor] = useState('#e63946')
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] font-sans">
@@ -316,7 +342,20 @@ function Home() {
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           {DESTACADOS.map((p, i) => (
-            <ProductCard key={p.id} producto={p} index={i} />
+            <ProductCard
+              key={p.id}
+              producto={p}
+              index={i}
+              onSelect={() => {
+                const full = getFullProduct(p.nombre)
+                if (full) {
+                  setSelectedProduct(full)
+                  setActiveColor(full.color || '#e63946')
+                } else {
+                  navigate('/menu')
+                }
+              }}
+            />
           ))}
         </div>
       </section>
@@ -338,7 +377,15 @@ function Home() {
           </h3>
           <p className="text-gray-300 text-xs mb-4">El favorito para compartir en La Esquina</p>
           <button
-            onClick={() => navigate('/menu')}
+            onClick={() => {
+              const full = getFullProduct('Ronda Big 20un x4')
+              if (full) {
+                setSelectedProduct(full)
+                setActiveColor(full.color || '#f4a261')
+              } else {
+                navigate('/menu')
+              }
+            }}
             className="bg-red-600 hover:bg-red-500 text-white font-black text-xs px-5 py-2.5 rounded-full w-fit shadow-xl transition active:scale-95"
           >
             Pedir ahora — S/ 59.00
@@ -360,7 +407,15 @@ function Home() {
           {POPULARES.map((p, i) => (
             <div
               key={p.nombre}
-              onClick={() => navigate('/menu')}
+              onClick={() => {
+                const full = getFullProduct(p.nombre)
+                if (full) {
+                  setSelectedProduct(full)
+                  setActiveColor(full.color || '#e63946')
+                } else {
+                  navigate('/menu')
+                }
+              }}
               className="flex-shrink-0 snap-start w-36 md:w-auto group cursor-pointer"
               style={{
                 animation: `catPop 0.4s ease ${i * 60}ms forwards`,
@@ -399,7 +454,15 @@ function Home() {
             Combo<br />Anticuchos
           </h3>
           <button
-            onClick={() => navigate('/menu')}
+            onClick={() => {
+              const full = getFullProduct('Combo Anticuchos')
+              if (full) {
+                setSelectedProduct(full)
+                setActiveColor(full.color || '#3a86ff')
+              } else {
+                navigate('/menu')
+              }
+            }}
             className="bg-yellow-400 hover:bg-yellow-300 text-black font-black text-xs px-5 py-2.5 rounded-full shadow-xl transition active:scale-95"
           >
             Solo S/ 35.90 →
@@ -444,6 +507,13 @@ function Home() {
         </div>
       </Section>
 
+      {selectedProduct && (
+        <ProductConfiguratorModal
+          producto={selectedProduct}
+          onClose={() => setSelectedProduct(null)}
+          color={activeColor}
+        />
+      )}
     </div>
   )
 }
