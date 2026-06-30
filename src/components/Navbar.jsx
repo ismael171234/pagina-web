@@ -97,12 +97,24 @@ function Navbar() {
   const [mostrarResultados, setMostrarResultados] = useState(false)
   const [searchFocused, setSearchFocused] = useState(false)
   const [scrolled, setScrolled]           = useState(false)
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false)
 
   const { usuario, datosUsuario, cerrarSesion } = useAuth()
   const { totalItems, setCartOpen } = useCart()
   const navigate  = useNavigate()
   const location  = useLocation()
   const searchRef = useRef(null)
+  const profileRef = useRef(null)
+
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (profileRef.current && !profileRef.current.contains(e.target)) {
+        setProfileMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleOutsideClick)
+    return () => document.removeEventListener('mousedown', handleOutsideClick)
+  }, [])
 
   const nombreCorto = datosUsuario?.nombre?.split(' ')[0] || usuario?.displayName?.split(' ')[0]
   const esAdmin    = datosUsuario?.rol === 'admin'
@@ -284,41 +296,107 @@ function Navbar() {
           {/* Zona derecha */}
           <div className="flex items-center gap-2 flex-shrink-0">
 
-            {/* Usuario - desktop */}
+            {/* Menú de usuario (Dropdown) */}
             {usuario ? (
-              <div className="hidden md:flex items-center gap-3">
-                <Link
-                  to="/orders"
-                  className="flex flex-col items-end leading-tight hover:opacity-80 transition"
-                >
-                  <span className="text-[10px] text-gray-500">Mi Cuenta</span>
-                  <span className="text-white font-black text-sm">{nombreCorto}</span>
-                </Link>
+              <div className="relative" ref={profileRef}>
+                {/* Desktop trigger */}
                 <button
-                  onClick={() => cerrarSesion()}
-                  className="w-8 h-8 flex items-center justify-center rounded-xl bg-white/5 border border-white/8 hover:bg-red-600/20 hover:border-red-500/40 text-gray-400 hover:text-white transition-all duration-200 active:scale-95"
-                  title="Cerrar sesión"
+                  onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+                  className="hidden md:flex flex-col items-end leading-tight hover:opacity-80 transition text-right"
                 >
-                  <FiLogOut size={13} />
+                  <span className="text-[10px] text-gray-500">Hola,</span>
+                  <span className="text-white font-black text-sm flex items-center gap-1.5">
+                    {nombreCorto}
+                    <span className="text-[8px] text-gray-500">▼</span>
+                  </span>
                 </button>
+
+                {/* Mobile trigger */}
+                <button
+                  onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+                  className="md:hidden w-9 h-9 flex items-center justify-center rounded-xl bg-white/5 border border-white/8 hover:border-red-500/40 text-gray-300 hover:text-white transition-all duration-200"
+                >
+                  <FiUser size={16} />
+                </button>
+
+                {/* Dropdown flotante */}
+                {profileMenuOpen && (
+                  <div
+                    className="absolute right-0 top-[calc(100%+8px)] w-48 bg-[#141414] border border-white/10 rounded-2xl shadow-2xl py-2 z-50 flex flex-col"
+                    style={{
+                      boxShadow: '0 20px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05)',
+                      animation: 'fadeInUp 0.18s ease-out'
+                    }}
+                  >
+                    <div className="px-4 py-2 border-b border-white/5 mb-1.5">
+                      <p className="text-[9px] text-gray-500 font-bold uppercase tracking-wider">Tu Cuenta</p>
+                      <p className="text-white font-black text-xs truncate leading-snug mt-0.5">{usuario.email}</p>
+                    </div>
+                    
+                    <button
+                      onClick={() => {
+                        setProfileMenuOpen(false)
+                        navigate('/orders', { state: { tab: 'historial' } })
+                      }}
+                      className="px-4 py-2 text-left text-xs font-bold hover:bg-white/5 text-gray-300 hover:text-white transition flex items-center gap-2"
+                    >
+                      <FiShoppingBag size={13} />
+                      Mis Pedidos
+                    </button>
+                    
+                    <button
+                      onClick={() => {
+                        setProfileMenuOpen(false)
+                        navigate('/orders', { state: { tab: 'perfil' } })
+                      }}
+                      className="px-4 py-2 text-left text-xs font-bold hover:bg-white/5 text-gray-300 hover:text-white transition flex items-center gap-2"
+                    >
+                      <FiUser size={13} />
+                      Mi Cuenta
+                    </button>
+
+                    {esAdmin && (
+                      <button
+                        onClick={() => {
+                          setProfileMenuOpen(false)
+                          navigate('/admin')
+                        }}
+                        className="px-4 py-2 text-left text-xs font-bold text-yellow-500 hover:bg-yellow-500/10 hover:text-yellow-400 border-t border-white/5 mt-1 pt-2 transition flex items-center gap-2"
+                      >
+                        <FiStar size={13} />
+                        Panel Admin
+                      </button>
+                    )}
+
+                    <button
+                      onClick={() => {
+                        setProfileMenuOpen(false)
+                        cerrarSesion()
+                      }}
+                      className="px-4 py-2 text-left text-xs font-bold text-red-500 hover:bg-red-500/10 hover:text-red-400 border-t border-white/5 mt-1 pt-2 transition flex items-center gap-2"
+                    >
+                      <FiLogOut size={13} />
+                      Cerrar Sesión
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <Link
                 to="/login"
-                className="hidden md:flex flex-col items-end leading-tight hover:opacity-80 transition"
+                className="flex items-center"
               >
-                <span className="text-[10px] text-gray-500">Identifícate</span>
-                <span className="text-white font-black text-sm">Inicia sesión</span>
+                {/* Desktop: Identifícate / Inicia sesión */}
+                <div className="hidden md:flex flex-col items-end leading-tight hover:opacity-85 transition">
+                  <span className="text-[10px] text-gray-500">Identifícate</span>
+                  <span className="text-white font-black text-sm">Inicia sesión</span>
+                </div>
+                {/* Mobile: Icono de login */}
+                <div className="md:hidden w-9 h-9 flex items-center justify-center rounded-xl bg-white/5 border border-white/8 hover:border-red-500/40 text-gray-300 hover:text-white transition-all duration-200">
+                  <FiUser size={16} />
+                </div>
               </Link>
             )}
-
-            {/* Icono usuario mobile */}
-            <Link
-              to={usuario ? '/orders' : '/login'}
-              className="md:hidden w-9 h-9 flex items-center justify-center rounded-xl bg-white/5 border border-white/8 hover:border-red-500/40 text-gray-300 hover:text-white transition-all duration-200"
-            >
-              <FiUser size={16} />
-            </Link>
 
             {/* Carrito */}
             <button

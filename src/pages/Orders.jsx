@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { supabase } from '../supabase/supabaseClient'
 import {
   FiMinus, FiPlus, FiTrash2, FiShoppingCart, FiClock,
@@ -193,8 +193,16 @@ function Orders() {
   const { carrito, actualizarCantidad, eliminarProducto, vaciarCarrito, total } = useCart()
   const { usuario, datosUsuario, cerrarSesion } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
 
-  const [vistaActiva, setVistaActiva] = useState('carrito')
+  const [vistaActiva, setVistaActiva] = useState(location.state?.tab || 'carrito')
+
+  useEffect(() => {
+    if (location.state?.tab) {
+      setVistaActiva(location.state.tab)
+    }
+  }, [location.state?.tab])
+
   const [historial, setHistorial]     = useState([])
   const [cargando, setCargando]       = useState(true)
   const [resenas, setResenas]         = useState({}) // { pedidoId: resena }
