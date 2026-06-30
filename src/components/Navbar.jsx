@@ -106,8 +106,6 @@ function Navbar() {
 
   const nombreCorto = datosUsuario?.nombre?.split(' ')[0] || usuario?.displayName?.split(' ')[0]
   const esAdmin    = datosUsuario?.rol === 'admin'
-  const esEmpleado = datosUsuario?.rol === 'empleado'
-  const esCocina   = datosUsuario?.rol === 'cocina'
 
   // Scroll listener para efecto glassmorphism
   useEffect(() => {
@@ -433,35 +431,22 @@ function Navbar() {
               </div>
 
               {/* Paneles especiales (solo staff) */}
-              {(esAdmin || esEmpleado || esCocina) && (
+              {esAdmin && (
                 <div className="mt-4">
                   <p className="text-[10px] text-gray-600 font-black uppercase tracking-widest mb-2 px-1">
                     Panel staff
                   </p>
                   <div className="flex flex-col gap-1">
-                    {esAdmin && (
-                      <Link to="/admin" onClick={() => setMenuOpen(false)}
-                        className="cat-btn flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-yellow-500/10 border border-transparent hover:border-yellow-500/20 group">
-                        <div className="flex items-center gap-3">
+                    <Link to="/admin" onClick={() => setMenuOpen(false)}
+                      className="cat-btn flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-yellow-500/10 border border-transparent hover:border-yellow-500/20 group">
+                      <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-lg bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center">
-                            <FiStar className="text-yellow-400" size={14} /></div>
-                          <p className="text-white font-bold text-sm">Admin</p>
+                          <FiStar className="text-yellow-400" size={14} />
                         </div>
-                        <FiChevronRight className="text-gray-700 group-hover:text-yellow-400 transition" size={14} />
-                      </Link>
-                    )}
-
-                    {(esAdmin || esEmpleado || esCocina) && (
-                      <Link to="/cocina" onClick={() => setMenuOpen(false)}
-                        className="cat-btn flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-orange-500/10 border border-transparent hover:border-orange-500/20 group">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-orange-500/10 border border-orange-500/20 flex items-center justify-center">
-                            <GiForkKnifeSpoon className="text-orange-400" /></div>
-                          <p className="text-white font-bold text-sm">Cocina</p>
-                        </div>
-                        <FiChevronRight className="text-gray-700 group-hover:text-orange-400 transition" size={14} />
-                      </Link>
-                    )}
+                        <p className="text-white font-bold text-sm">Admin</p>
+                      </div>
+                      <FiChevronRight className="text-gray-700 group-hover:text-yellow-400 transition" size={14} />
+                    </Link>
                   </div>
                 </div>
               )}

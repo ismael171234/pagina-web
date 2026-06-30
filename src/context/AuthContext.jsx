@@ -4,8 +4,6 @@ import { supabase } from '../supabase/supabaseClient'
 const AuthContext = createContext()
 
 const ADMINS = ['admin@laesquina.com']
-const COCINERO = ['cocinero@laesquina.com']
-const EMPLEADOS = ['mesero@laesquina.com']
 
 export function useAuth() {
   return useContext(AuthContext)
@@ -24,24 +22,31 @@ export function AuthProvider({ children }) {
         .eq('id', user.id)
         .maybeSingle()
 
+      const rol = ADMINS.includes(user.email) ? 'admin' : 'usuario'
+
       if (data) {
-        let rol = data.rol
-        if (ADMINS.includes(user.email)) rol = 'admin'
-        else if (EMPLEADOS.includes(user.email)) rol = 'empleado'
-        else if (COCINERO.includes(user.email)) rol = 'cocina'
-
-        setDatosUsuario({ ...data, rol })
+        // Asegurar rol de administrador si el correo está en la lista estática
+        const finalRol = ADMINS.includes(user.email) ? 'admin' : (data.rol || 'usuario')
+        setDatosUsuario({ ...data, rol: finalRol })
       } else {
-        let rol = 'usuario'
-        if (ADMINS.includes(user.email)) rol = 'admin'
-        else if (EMPLEADOS.includes(user.email)) rol = 'empleado'
-        else if (COCINERO.includes(user.email)) rol = 'cocina'
-
-        setDatosUsuario({
-          rol,
+        // Auto-creación del perfil público si no existe (vital para nuevos ingresos y Google OAuth)
+        const nuevoPerfil = {
+          id: user.id,
+          nombre: user.user_metadata?.full_name || user.user_metadata?.name || 'Cliente',
           email: user.email,
-          nombre: user.user_metadata?.full_name || user.user_metadata?.name || 'Usuario'
-        })
+          foto: user.user_metadata?.avatar_url || null,
+          rol,
+          creado_en: new Date().toISOString()
+        }
+
+        const { error: insErr } = await supabase
+          .from('usuarios')
+          .insert(nuevoPerfil)
+
+        if (insErr) {
+          console.error('Error creando perfil de usuario público:', insErr)
+        }
+        setDatosUsuario(nuevoPerfil)
       }
     } catch (err) {
       console.error('Error fetching user data:', err)

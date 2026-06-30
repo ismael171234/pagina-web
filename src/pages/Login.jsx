@@ -7,6 +7,8 @@ import fondo from '../assets/lugaresquina.jpeg'
 import { FcGoogle } from 'react-icons/fc'
 import { FiEye, FiEyeOff, FiMail, FiLock, FiUser, FiCheck, FiX } from 'react-icons/fi'
 
+import { useEffect } from 'react'
+
 function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [isRegister, setIsRegister] = useState(false)
@@ -14,10 +16,17 @@ function Login() {
   const [password, setPassword] = useState('')
   const [nombre, setNombre] = useState('')
   const [error, setError] = useState('')
+  const [infoMsg, setInfoMsg] = useState('')
   const [cargando, setCargando] = useState(false)
 
-  const { loginGoogle, loginEmail, registrar } = useAuth()
+  const { usuario, loginGoogle, loginEmail, registrar } = useAuth()
   const navigate = useNavigate()
+
+  useEffect(() => {
+    if (usuario) {
+      navigate('/')
+    }
+  }, [usuario, navigate])
 
   const validaciones = {
     longitud: password.length >= 8,
@@ -57,6 +66,7 @@ function Login() {
     try {
       setCargando(true)
       setError('')
+      setInfoMsg('')
       if (isRegister) {
         const { data, error: regError } = await registrar(email, password)
         if (regError) throw regError
@@ -71,6 +81,13 @@ function Login() {
             creado_en: new Date().toISOString()
           })
           if (dbError) console.error('Error inserting user to public.usuarios:', dbError)
+          
+          if (!data.session) {
+            setInfoMsg('¡Cuenta creada con éxito! Se ha enviado un correo de confirmación. Por favor, verifica tu bandeja de entrada antes de iniciar sesión.')
+            setIsRegister(false)
+            setPassword('')
+            return
+          }
         }
       } else {
         const { error: loginErr } = await loginEmail(email, password)
@@ -111,6 +128,12 @@ function Login() {
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-xl mb-4 text-center">
               {error}
+            </div>
+          )}
+
+          {infoMsg && (
+            <div className="bg-green-50 border border-green-200 text-green-700 text-sm px-4 py-3 rounded-xl mb-4 text-center font-medium">
+              {infoMsg}
             </div>
           )}
 
