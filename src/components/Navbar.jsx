@@ -286,9 +286,21 @@ function Navbar() {
 
             {/* Usuario - desktop */}
             {usuario ? (
-              <div className="hidden md:flex flex-col items-end leading-tight">
-                <span className="text-[10px] text-gray-500">Hola,</span>
-                <span className="text-white font-black text-sm">{nombreCorto}</span>
+              <div className="hidden md:flex items-center gap-3">
+                <Link
+                  to="/orders"
+                  className="flex flex-col items-end leading-tight hover:opacity-80 transition"
+                >
+                  <span className="text-[10px] text-gray-500">Mi Cuenta</span>
+                  <span className="text-white font-black text-sm">{nombreCorto}</span>
+                </Link>
+                <button
+                  onClick={() => cerrarSesion()}
+                  className="w-8 h-8 flex items-center justify-center rounded-xl bg-white/5 border border-white/8 hover:bg-red-600/20 hover:border-red-500/40 text-gray-400 hover:text-white transition-all duration-200 active:scale-95"
+                  title="Cerrar sesión"
+                >
+                  <FiLogOut size={13} />
+                </button>
               </div>
             ) : (
               <Link
@@ -302,7 +314,7 @@ function Navbar() {
 
             {/* Icono usuario mobile */}
             <Link
-              to={usuario ? '/login' : '/login'}
+              to={usuario ? '/orders' : '/login'}
               className="md:hidden w-9 h-9 flex items-center justify-center rounded-xl bg-white/5 border border-white/8 hover:border-red-500/40 text-gray-300 hover:text-white transition-all duration-200"
             >
               <FiUser size={16} />
