@@ -74,6 +74,8 @@ export function CartProvider({ children }) {
 
   const totalItems = carrito.reduce((acc, item) => acc + item.cantidad, 0)
 
+  const [cartOpen, setCartOpen] = useState(false)
+
   const value = {
     carrito,
     agregarProducto,
@@ -82,6 +84,8 @@ export function CartProvider({ children }) {
     vaciarCarrito,
     total,
     totalItems,
+    cartOpen,
+    setCartOpen,
   }
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>

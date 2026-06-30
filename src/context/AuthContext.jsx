@@ -1,22 +1,11 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { auth, googleProvider, db } from '../firebase/config'
-import {
-  signInWithPopup,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged
-} from 'firebase/auth'
-import { doc, getDoc } from 'firebase/firestore'
+import { supabase } from '../supabase/supabaseClient'
 
 const AuthContext = createContext()
 
 const ADMINS = ['admin@laesquina.com']
-
 const COCINERO = ['cocinero@laesquina.com']
-
 const EMPLEADOS = ['mesero@laesquina.com']
-
 
 export function useAuth() {
   return useContext(AuthContext)
@@ -27,40 +16,79 @@ export function AuthProvider({ children }) {
   const [datosUsuario, setDatosUsuario] = useState(undefined)
   const [cargando, setCargando] = useState(true)
 
+  const fetchDatosUsuario = async (user) => {
+    try {
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle()
+
+      if (data) {
+        let rol = data.rol
+        if (ADMINS.includes(user.email)) rol = 'admin'
+        else if (EMPLEADOS.includes(user.email)) rol = 'empleado'
+        else if (COCINERO.includes(user.email)) rol = 'cocina'
+
+        setDatosUsuario({ ...data, rol })
+      } else {
+        let rol = 'usuario'
+        if (ADMINS.includes(user.email)) rol = 'admin'
+        else if (EMPLEADOS.includes(user.email)) rol = 'empleado'
+        else if (COCINERO.includes(user.email)) rol = 'cocina'
+
+        setDatosUsuario({
+          rol,
+          email: user.email,
+          nombre: user.user_metadata?.full_name || user.user_metadata?.name || 'Usuario'
+        })
+      }
+    } catch (err) {
+      console.error('Error fetching user data:', err)
+    } finally {
+      setCargando(false)
+    }
+  }
+
   useEffect(() => {
-    const unsuscribe = onAuthStateChanged(auth, async (user) => {
+    // Obtener sesión inicial
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const user = session?.user ?? null
       setUsuario(user)
       if (user) {
-        const docRef = doc(db, 'usuarios', user.uid)
-        const docSnap = await getDoc(docRef)
-        if (docSnap.exists()) {
-          const data = docSnap.data()
-                    if (ADMINS.includes(user.email)) {
-            setDatosUsuario({ ...data, rol: 'admin' })
-          } else if (EMPLEADOS.includes(user.email)) {
-            setDatosUsuario({ ...data, rol: 'empleado' })
-          } else {
-            setDatosUsuario(data)
-          }
-        } else {
-          if (ADMINS.includes(user.email)) {
-            setDatosUsuario({ rol: 'admin', email: user.email, nombre: user.displayName })
-          } else {
-            setDatosUsuario({ rol: 'usuario', email: user.email, nombre: user.displayName })
-          }
-        }
+        fetchDatosUsuario(user)
       } else {
         setDatosUsuario(null)
+        setCargando(false)
       }
-      setCargando(false)
     })
-    return unsuscribe
+
+    // Suscribirse a cambios de autenticación
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      const user = session?.user ?? null
+      setUsuario(user)
+      if (user) {
+        await fetchDatosUsuario(user)
+      } else {
+        setDatosUsuario(null)
+        setCargando(false)
+      }
+    })
+
+    return () => {
+      subscription?.unsubscribe()
+    }
   }, [])
 
-  const loginGoogle = () => signInWithPopup(auth, googleProvider)
-  const loginEmail = (email, password) => signInWithEmailAndPassword(auth, email, password)
-  const registrar = (email, password) => createUserWithEmailAndPassword(auth, email, password)
-  const cerrarSesion = () => signOut(auth)
+  const loginGoogle = () => supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: window.location.origin
+    }
+  })
+  const loginEmail = (email, password) => supabase.auth.signInWithPassword({ email, password })
+  const registrar = (email, password) => supabase.auth.signUp({ email, password })
+  const cerrarSesion = () => supabase.auth.signOut()
 
   const value = { usuario, datosUsuario, loginGoogle, loginEmail, registrar, cerrarSesion, cargando }
 
@@ -69,4 +97,4 @@ export function AuthProvider({ children }) {
       {!cargando && children}
     </AuthContext.Provider>
   )
-}
+}

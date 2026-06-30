@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { db } from '../firebase/config'
-import { doc, setDoc } from 'firebase/firestore'
+import { supabase } from '../supabase/supabaseClient'
 import logo from '../assets/imagesesquina.jpeg'
 import fondo from '../assets/lugaresquina.jpeg'
 import { FcGoogle } from 'react-icons/fc'
@@ -33,18 +32,10 @@ function Login() {
     try {
       setCargando(true)
       setError('')
-      const result = await loginGoogle()
-      const user = result.user
-      await setDoc(doc(db, 'usuarios', user.uid), {
-        nombre: user.displayName,
-        email: user.email,
-        foto: user.photoURL,
-        rol: 'usuario',
-        creadoEn: new Date(),
-      }, { merge: true })
-      navigate('/')
+      const { error } = await loginGoogle()
+      if (error) throw error
     } catch (err) {
-      setError('Error al iniciar sesión con Google')
+      setError('Error al iniciar sesión con Google: ' + (err.message || err))
     } finally {
       setCargando(false)
     }
@@ -67,29 +58,32 @@ function Login() {
       setCargando(true)
       setError('')
       if (isRegister) {
-        const result = await registrar(email, password)
-        await setDoc(doc(db, 'usuarios', result.user.uid), {
-          nombre: nombre,
-          email: email,
-          foto: null,
-          rol: 'usuario',
-          creadoEn: new Date(),
-        })
+        const { data, error: regError } = await registrar(email, password)
+        if (regError) throw regError
+        
+        if (data?.user) {
+          const { error: dbError } = await supabase.from('usuarios').upsert({
+            id: data.user.id,
+            nombre: nombre,
+            email: email,
+            foto: null,
+            rol: 'usuario',
+            creado_en: new Date().toISOString()
+          })
+          if (dbError) console.error('Error inserting user to public.usuarios:', dbError)
+        }
       } else {
-        await loginEmail(email, password)
+        const { error: loginErr } = await loginEmail(email, password)
+        if (loginErr) throw loginErr
       }
       navigate('/')
     } catch (err) {
-      if (err.code === 'auth/user-not-found') setError('Usuario no encontrado')
-      else if (err.code === 'auth/wrong-password') setError('Contraseña incorrecta')
-      else if (err.code === 'auth/email-already-in-use') setError('El correo ya está en uso')
-      else if (err.code === 'auth/weak-password') setError('La contraseña debe tener al menos 6 caracteres')
-      else if (err.code === 'auth/invalid-credential') setError('Correo o contraseña incorrectos')
-      else setError('Error al iniciar sesión')
+      setError(err.message || 'Error al iniciar sesión')
     } finally {
       setCargando(false)
     }
   }
+
 
   return (
     <div className="min-h-screen flex">

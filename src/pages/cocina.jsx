@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { db } from '../firebase/config'
-import { collection, onSnapshot, doc, updateDoc } from 'firebase/firestore'
+import { supabase } from '../supabase/supabaseClient'
 import {
   FiClock, FiCheckCircle, FiLogOut, FiMenu, FiX,
   FiTruck
@@ -37,15 +36,32 @@ function Cocina() {
 
   useEffect(() => {
     if (!autorizado) return
-    const unsub = onSnapshot(collection(db, 'pedidos'), (snap) => {
-      const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-      setPedidos(data.sort((a, b) => a.creadoEn?.seconds - b.creadoEn?.seconds))
-    })
-    return unsub
+
+    const fetchPedidos = async () => {
+      const { data } = await supabase
+        .from('pedidos')
+        .select('*')
+      if (data) {
+        setPedidos(data.sort((a, b) => new Date(a.creado_en) - new Date(b.creado_en)))
+      }
+    }
+
+    fetchPedidos()
+
+    const channel = supabase
+      .channel('cocina-pedidos')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, () => {
+        fetchPedidos()
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
   }, [autorizado])
 
   const cambiarEstado = async (pedidoId, nuevoEstado) => {
-    await updateDoc(doc(db, 'pedidos', pedidoId), { estado: nuevoEstado })
+    await supabase.from('pedidos').update({ estado: nuevoEstado }).eq('id', pedidoId)
   }
 
   const pedidosFiltrados = pedidos.filter((p) =>
@@ -56,7 +72,8 @@ function Cocina() {
 
   const tiempoTranscurrido = (fecha) => {
     if (!fecha) return '—'
-    const diff = Math.floor((new Date() - fecha.toDate()) / 60000)
+    const d = typeof fecha === 'string' ? new Date(fecha) : (fecha.toDate ? fecha.toDate() : new Date(fecha))
+    const diff = Math.floor((new Date() - d) / 60000)
     if (diff < 1) return 'Ahora'
     if (diff === 1) return '1 min'
     return `${diff} min`
@@ -64,7 +81,8 @@ function Cocina() {
 
   const colorTiempo = (fecha) => {
     if (!fecha) return 'text-gray-400'
-    const diff = Math.floor((new Date() - fecha.toDate()) / 60000)
+    const d = typeof fecha === 'string' ? new Date(fecha) : (fecha.toDate ? fecha.toDate() : new Date(fecha))
+    const diff = Math.floor((new Date() - d) / 60000)
     if (diff < 5) return 'text-green-400'
     if (diff < 10) return 'text-yellow-400'
     return 'text-red-400'
@@ -215,11 +233,11 @@ function Cocina() {
                       <p className="text-white font-bold text-sm">{pedido.mesa || 'Pedido online'}</p>
                     </div>
                     <div className="text-right">
-                      <p className={`text-sm font-bold ${colorTiempo(pedido.creadoEn)}`}>
-                        {tiempoTranscurrido(pedido.creadoEn)}
+                      <p className={`text-sm font-bold ${colorTiempo(pedido.creado_en)}`}>
+                        {tiempoTranscurrido(pedido.creado_en)}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {pedido.creadoEn?.toDate().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
+                        {pedido.creado_en ? new Date(pedido.creado_en).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }) : '—'}
                       </p>
                     </div>
                   </div>

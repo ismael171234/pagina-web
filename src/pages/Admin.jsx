@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { db } from '../firebase/config'
-import { collection, onSnapshot, doc, updateDoc } from 'firebase/firestore'
+import { supabase } from '../supabase/supabaseClient'
 import {
   FiShoppingBag, FiUsers, FiClock, FiCheckCircle,
   FiXCircle, FiTruck, FiDollarSign, FiList,
@@ -51,27 +50,66 @@ function Admin() {
 
   useEffect(() => {
     if (!autorizado) return
-    const unsubPedidos = onSnapshot(collection(db, 'pedidos'), (snap) => {
-      const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-      setPedidos(data.sort((a, b) => b.creadoEn?.seconds - a.creadoEn?.seconds))
-      setCargando(false)
-    })
-    const unsubUsuarios = onSnapshot(collection(db, 'usuarios'), (snap) => {
-      setUsuarios(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
-    })
-    const unsubResenas = onSnapshot(collection(db, 'resenas'), (snap) => {
-      setResenas(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
-    })
-    return () => { unsubPedidos(); unsubUsuarios(); unsubResenas() }
+
+    const fetchPedidos = async () => {
+      const { data } = await supabase
+        .from('pedidos')
+        .select('*')
+      if (data) {
+        setPedidos(data.sort((a, b) => new Date(b.creado_en) - new Date(a.creado_en)))
+        setCargando(false)
+      }
+    }
+
+    const fetchUsuarios = async () => {
+      const { data } = await supabase.from('usuarios').select('*')
+      if (data) setUsuarios(data)
+    }
+
+    const fetchResenas = async () => {
+      const { data } = await supabase.from('resenas').select('*')
+      if (data) setResenas(data)
+    }
+
+    fetchPedidos()
+    fetchUsuarios()
+    fetchResenas()
+
+    const subPedidos = supabase
+      .channel('admin-pedidos')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, () => {
+        fetchPedidos()
+      })
+      .subscribe()
+
+    const subUsuarios = supabase
+      .channel('admin-usuarios')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'usuarios' }, () => {
+        fetchUsuarios()
+      })
+      .subscribe()
+
+    const subResenas = supabase
+      .channel('admin-resenas')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'resenas' }, () => {
+        fetchResenas()
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(subPedidos)
+      supabase.removeChannel(subUsuarios)
+      supabase.removeChannel(subResenas)
+    }
   }, [autorizado])
 
   const cambiarEstado = async (pedidoId, nuevoEstado) => {
-    await updateDoc(doc(db, 'pedidos', pedidoId), { estado: nuevoEstado })
+    await supabase.from('pedidos').update({ estado: nuevoEstado }).eq('id', pedidoId)
   }
 
   // ── Stats base ──
   const pedidosHoy = pedidos.filter((p) => {
-    const f = p.creadoEn?.toDate()
+    const f = p.creado_en ? new Date(p.creado_en) : null
     return f && f.toDateString() === new Date().toDateString()
   })
   const totalHoy        = pedidosHoy.reduce((acc, p) => acc + (p.total || 0), 0)
@@ -84,7 +122,7 @@ function Admin() {
   const diasAtras = parseInt(periodoReporte)
 
   const pedidosEnPeriodo = pedidos.filter(p => {
-    const f = p.creadoEn?.toDate()
+    const f = p.creado_en ? new Date(p.creado_en) : null
     if (!f) return false
     const diff = (ahora - f) / (1000 * 60 * 60 * 24)
     return diff <= diasAtras
@@ -100,7 +138,7 @@ function Admin() {
       mapa[key] = 0
     }
     pedidosEnPeriodo.filter(p => p.estado !== 'cancelado').forEach(p => {
-      const key = p.creadoEn?.toDate().toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit' })
+      const key = p.creado_en ? new Date(p.creado_en).toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit' }) : null
       if (key && mapa[key] !== undefined) mapa[key] += p.total || 0
     })
     return Object.entries(mapa).map(([dia, total]) => ({ dia, total }))
@@ -131,7 +169,7 @@ function Admin() {
     const mapa = {}
     for (let h = 0; h < 24; h++) mapa[h] = 0
     pedidosEnPeriodo.forEach(p => {
-      const h = p.creadoEn?.toDate().getHours()
+      const h = p.creado_en ? new Date(p.creado_en).getHours() : undefined
       if (h !== undefined) mapa[h]++
     })
     // Solo horas con pedidos o entre 10am-11pm
@@ -297,7 +335,7 @@ function Admin() {
                       <div key={pedido.id} className="flex items-center justify-between py-2 border-b border-gray-50">
                         <div>
                           <p className="text-xs font-semibold text-gray-800">{pedido.usuarioEmail}</p>
-                          <p className="text-xs text-gray-400">{pedido.creadoEn?.toDate().toLocaleString('es-PE')}</p>
+                          <p className="text-xs text-gray-400">{pedido.creado_en ? new Date(pedido.creado_en).toLocaleString('es-PE') : '—'}</p>
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-bold text-red-600">S/ {pedido.total?.toFixed(2)}</span>
@@ -492,7 +530,7 @@ function Admin() {
                     <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">Ultimas resenas</p>
                     <div className="flex flex-col gap-3 max-h-64 overflow-y-auto">
                       {[...resenas]
-                        .sort((a, b) => (b.creadoEn?.seconds || 0) - (a.creadoEn?.seconds || 0))
+                        .sort((a, b) => new Date(b.creado_en) - new Date(a.creado_en))
                         .slice(0, 10)
                         .map((r) => (
                           <div key={r.id} className="bg-gray-50 rounded-xl p-3 border border-gray-100">
@@ -505,7 +543,7 @@ function Admin() {
                                 ))}
                               </div>
                               <p className="text-xs text-gray-400">
-                                {r.creadoEn?.toDate?.().toLocaleDateString('es-PE') || '—'}
+                                {r.creado_en ? new Date(r.creado_en).toLocaleDateString('es-PE') : '—'}
                               </p>
                             </div>
                             {r.comentario && (
@@ -559,7 +597,7 @@ function Admin() {
                       <div>
                         <p className="text-xs text-gray-400">#{pedido.id.slice(0, 8)}</p>
                         <p className="text-sm font-bold text-gray-900">{pedido.usuarioEmail}</p>
-                        <p className="text-xs text-gray-400">{pedido.creadoEn?.toDate().toLocaleString('es-PE')}</p>
+                        <p className="text-xs text-gray-400">{pedido.creado_en ? new Date(pedido.creado_en).toLocaleString('es-PE') : '—'}</p>
                       </div>
                       <div className="text-right">
                         <p className="text-red-600 font-bold">S/ {pedido.total?.toFixed(2)}</p>
@@ -629,7 +667,7 @@ function Admin() {
                           }`}>{user.rol}</span>
                         </td>
                         <td className="px-4 py-3 text-xs text-gray-400">
-                          {user.creadoEn?.toDate().toLocaleDateString('es-PE')}
+                          {user.creado_en ? new Date(user.creado_en).toLocaleDateString('es-PE') : '—'}
                         </td>
                       </tr>
                     ))}

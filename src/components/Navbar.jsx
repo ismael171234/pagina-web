@@ -99,7 +99,7 @@ function Navbar() {
   const [scrolled, setScrolled]           = useState(false)
 
   const { usuario, datosUsuario, cerrarSesion } = useAuth()
-  const { totalItems } = useCart()
+  const { totalItems, setCartOpen } = useCart()
   const navigate  = useNavigate()
   const location  = useLocation()
   const searchRef = useRef(null)
@@ -311,8 +311,8 @@ function Navbar() {
             </Link>
 
             {/* Carrito */}
-            <Link
-              to="/orders"
+            <button
+              onClick={() => setCartOpen(true)}
               className="relative w-9 h-9 flex items-center justify-center rounded-xl bg-white/5 border border-white/8 hover:bg-red-600/20 hover:border-red-500/40 text-gray-300 hover:text-white transition-all duration-200 active:scale-90"
             >
               <FiShoppingCart size={16} />
@@ -321,7 +321,7 @@ function Navbar() {
                   {totalItems}
                 </span>
               )}
-            </Link>
+            </button>
           </div>
         </div>
 
@@ -450,18 +450,7 @@ function Navbar() {
                         <FiChevronRight className="text-gray-700 group-hover:text-yellow-400 transition" size={14} />
                       </Link>
                     )}
-                    {(esAdmin || esEmpleado) && (
-                      <Link to="/empleado" onClick={() => setMenuOpen(false)}
-                        className="cat-btn flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-blue-500/10 border border-transparent hover:border-blue-500/20 group">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-base">
-                            <MdTableRestaurant className="text-blue-400" />
-                          </div>
-                          <p className="text-white font-bold text-sm">Mesero</p>
-                        </div>
-                        <FiChevronRight className="text-gray-700 group-hover:text-blue-400 transition" size={14} />
-                      </Link>
-                    )}
+
                     {(esAdmin || esEmpleado || esCocina) && (
                       <Link to="/cocina" onClick={() => setMenuOpen(false)}
                         className="cat-btn flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-orange-500/10 border border-transparent hover:border-orange-500/20 group">

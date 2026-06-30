@@ -2,11 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
-import { db } from '../firebase/config'
-import {
-  collection, query, where, onSnapshot,
-  doc, updateDoc, addDoc, serverTimestamp
-} from 'firebase/firestore'
+import { supabase } from '../supabase/supabaseClient'
 import {
   FiMinus, FiPlus, FiTrash2, FiShoppingCart, FiClock,
   FiCheckCircle, FiTruck, FiXCircle, FiShoppingBag,
@@ -96,19 +92,29 @@ function FormularioResena({ pedido, usuarioId, onGuardado }) {
     setGuardando(true)
     setError('')
     try {
-      await addDoc(collection(db, 'resenas'), {
-        pedidoId:    pedido.id,
-        usuarioId,
-        calificacion,
-        comentario:  comentario.trim(),
-        productos:   pedido.productos?.map(p => p.nombre).join(', ') || '',
-        total:       pedido.total,
-        creadoEn:    serverTimestamp(),
-      })
-      await updateDoc(doc(db, 'pedidos', pedido.id), { resena: true })
+      const { error: insError } = await supabase
+        .from('resenas')
+        .insert({
+          pedido_id:    pedido.id,
+          usuario_id:   usuarioId,
+          calificacion,
+          comentario:  comentario.trim(),
+          productos:   pedido.productos?.map(p => p.nombre).join(', ') || '',
+          total:       pedido.total,
+          creado_en:    new Date().toISOString(),
+        })
+      if (insError) throw insError
+
+      const { error: updError } = await supabase
+        .from('pedidos')
+        .update({ resena: true })
+        .eq('id', pedido.id)
+      if (updError) throw updError
+
       onGuardado()
-    } catch {
-      setError('Error al guardar la resena. Intenta de nuevo.')
+    } catch (err) {
+      console.error(err)
+      setError('Error al guardar la reseña. Intenta de nuevo.')
     }
     setGuardando(false)
   }
@@ -212,44 +218,99 @@ function Orders() {
   // ── Listener pedidos ──
   useEffect(() => {
     if (!usuario) return
-    const q = query(collection(db, 'pedidos'), where('usuarioId', '==', usuario.uid))
-    const unsub = onSnapshot(q, (snap) => {
-      const data = snap.docs.map(d => ({ id: d.id, ...d.data() }))
-      const ordenado = data.sort((a, b) => b.creadoEn?.seconds - a.creadoEn?.seconds)
 
-      if (primeraCarga.current) {
-        primeraCarga.current = false
-        ordenado.forEach(p => { estadosAnteriores.current[p.id] = p.estado })
+    const fetchPedidos = async () => {
+      const { data, error } = await supabase
+        .from('pedidos')
+        .select('*')
+        .eq('usuario_id', usuario.id)
+      
+      if (data) {
+        const ordenado = data.sort((a, b) => new Date(b.creado_en) - new Date(a.creado_en))
+        
+        if (primeraCarga.current) {
+          primeraCarga.current = false
+          ordenado.forEach(p => { estadosAnteriores.current[p.id] = p.estado })
+          setHistorial(ordenado)
+          setCargando(false)
+          return
+        }
+
+        ordenado.forEach(pedido => {
+          const anterior = estadosAnteriores.current[pedido.id]
+          if (anterior && anterior !== pedido.estado) {
+            agregarToast(pedido.estado)
+            notifNativa(pedido.estado)
+          }
+          estadosAnteriores.current[pedido.id] = pedido.estado
+        })
+
         setHistorial(ordenado)
         setCargando(false)
-        return
       }
+    };
 
-      ordenado.forEach(pedido => {
-        const anterior = estadosAnteriores.current[pedido.id]
-        if (anterior && anterior !== pedido.estado) {
-          agregarToast(pedido.estado)
-          notifNativa(pedido.estado)
+    fetchPedidos()
+
+    const channel = supabase
+      .channel(`pedidos-user-${usuario.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'pedidos',
+          filter: `usuario_id=eq.${usuario.id}`
+        },
+        () => {
+          fetchPedidos()
         }
-        estadosAnteriores.current[pedido.id] = pedido.estado
-      })
+      )
+      .subscribe()
 
-      setHistorial(ordenado)
-      setCargando(false)
-    })
-    return unsub
+    return () => {
+      supabase.removeChannel(channel)
+    }
   }, [usuario])
 
   // ── Listener reseñas del usuario ──
   useEffect(() => {
     if (!usuario) return
-    const q = query(collection(db, 'resenas'), where('usuarioId', '==', usuario.uid))
-    const unsub = onSnapshot(q, (snap) => {
-      const mapa = {}
-      snap.docs.forEach(d => { mapa[d.data().pedidoId] = { id: d.id, ...d.data() } })
-      setResenas(mapa)
-    })
-    return unsub
+
+    const fetchResenas = async () => {
+      const { data, error } = await supabase
+        .from('resenas')
+        .select('*')
+        .eq('usuario_id', usuario.id)
+
+      if (data) {
+        const mapa = {}
+        data.forEach(d => { mapa[d.pedido_id] = { id: d.id, ...d } })
+        setResenas(mapa)
+      }
+    };
+
+    fetchResenas()
+
+    const channel = supabase
+      .channel(`resenas-user-${usuario.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'resenas',
+          filter: `usuario_id=eq.${usuario.id}`
+        },
+        () => {
+          fetchResenas()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
   }, [usuario])
 
   const pedirPermiso = async () => {
@@ -278,29 +339,32 @@ function Orders() {
     if (!usuario) { navigate('/login'); return }
     if (carrito.length === 0) return
     try {
-      const { addDoc: addDocFb } = await import('firebase/firestore')
-      await addDocFb(collection(db, 'pedidos'), {
-        usuarioId:    usuario.uid,
-        usuarioEmail: usuario.email,
-        productos: carrito.map((item) => ({
-          id: item.id, nombre: item.nombre, precio: item.precio,
-          cantidad: item.cantidad, opcion: item.opcion,
-          complemento: item.complemento?.nombre || null, extra: item.extra,
-        })),
-        total:    parseFloat(total.toFixed(2)),
-        estado:   'pendiente',
-        resena:   false,
-        creadoEn: new Date(),
-      })
+      const { error } = await supabase
+        .from('pedidos')
+        .insert({
+          usuario_id:    usuario.id,
+          usuario_email: usuario.email,
+          productos: carrito.map((item) => ({
+            id: item.id, nombre: item.nombre, precio: item.precio,
+            cantidad: item.cantidad, opcion: item.opcion,
+            complemento: item.complemento?.nombre || null, extra: item.extra,
+          })),
+          total:    parseFloat(total.toFixed(2)),
+          estado:   'pendiente',
+          resena:   false,
+          creado_en: new Date().toISOString(),
+        })
+      if (error) throw error
       vaciarCarrito()
       setVistaActiva('historial')
-    } catch {
+    } catch (err) {
+      console.error(err)
       alert('Error al confirmar el pedido. Intenta de nuevo.')
     }
   }
 
   const iniciarEdicion = () => {
-    setNombreEdit(datosUsuario?.nombre || usuario?.displayName || '')
+    setNombreEdit(datosUsuario?.nombre || usuario?.user_metadata?.full_name || usuario?.user_metadata?.name || '')
     setEditando(true)
     setGuardadoOk(false)
   }
@@ -309,11 +373,18 @@ function Orders() {
     if (!nombreEdit.trim()) return
     setGuardando(true)
     try {
-      await updateDoc(doc(db, 'usuarios', usuario.uid), { nombre: nombreEdit.trim() })
+      const { error } = await supabase
+        .from('usuarios')
+        .update({ nombre: nombreEdit.trim() })
+        .eq('id', usuario.id)
+      if (error) throw error
       setGuardadoOk(true)
       setEditando(false)
       setTimeout(() => setGuardadoOk(false), 2500)
-    } catch { alert('Error al guardar.') }
+    } catch (err) {
+      console.error(err)
+      alert('Error al guardar.')
+    }
     setGuardando(false)
   }
 
@@ -501,7 +572,7 @@ function Orders() {
                     <div className="flex items-center justify-between mb-3">
                       <div>
                         <p className="text-xs text-gray-400">Pedido #{pedido.id.slice(0, 8)}</p>
-                        <p className="text-xs text-gray-400">{pedido.creadoEn?.toDate().toLocaleString('es-PE')}</p>
+                        <p className="text-xs text-gray-400">{pedido.creado_en ? new Date(pedido.creado_en).toLocaleString('es-PE') : '—'}</p>
                       </div>
                       <div className="text-right">
                         <p className="text-red-600 font-bold">S/ {pedido.total?.toFixed(2)}</p>
@@ -553,7 +624,9 @@ function Orders() {
                           </p>
                         </div>
                         <button
-                          onClick={() => updateDoc(doc(db, 'pedidos', pedido.id), { estado: 'entregado' })}
+                          onClick={async () => {
+                            await supabase.from('pedidos').update({ estado: 'entregado' }).eq('id', pedido.id)
+                          }}
                           className="w-full bg-green-600 hover:bg-green-700 active:scale-95 text-white font-bold py-2.5 rounded-xl transition text-sm flex items-center justify-center gap-2"
                         >
                           <FiCheckCircle size={15} />
@@ -566,7 +639,7 @@ function Orders() {
                     {puedeResena && (
                       <FormularioResena
                         pedido={pedido}
-                        usuarioId={usuario.uid}
+                        usuarioId={usuario.id}
                         onGuardado={() => setResenasEnviadas(prev => ({ ...prev, [pedido.id]: true }))}
                       />
                     )}
@@ -608,12 +681,12 @@ function Orders() {
               <>
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col items-center text-center">
                   <div className="w-20 h-20 rounded-full bg-red-100 border-4 border-red-200 flex items-center justify-center overflow-hidden mb-4">
-                    {usuario.photoURL
-                      ? <img src={usuario.photoURL} alt="foto" className="w-full h-full object-cover" />
+                    {usuario.photoURL || usuario.user_metadata?.avatar_url
+                      ? <img src={usuario.photoURL || usuario.user_metadata?.avatar_url} alt="foto" className="w-full h-full object-cover" />
                       : <FiUser className="text-red-500 text-3xl" />}
                   </div>
                   <p className="text-lg font-black text-gray-900">
-                    {datosUsuario?.nombre || usuario?.displayName || 'Usuario'}
+                    {datosUsuario?.nombre || usuario?.user_metadata?.full_name || usuario?.user_metadata?.name || 'Usuario'}
                   </p>
                   <span className={`text-xs font-bold px-3 py-1 rounded-full mt-2 ${rolColor[datosUsuario?.rol] || 'bg-gray-100 text-gray-600'}`}>
                     {rolLabel[datosUsuario?.rol] || 'Cliente'}

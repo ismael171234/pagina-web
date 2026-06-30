@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import ProductConfiguratorModal from '../components/ProductConfiguratorModal'
 
 import hamburguesaclasica1 from '../assets/hamburguesaclasica1.png'
 import hamburguesaclasica2 from '../assets/hamburguesaclasica2.jpg'
@@ -183,13 +184,12 @@ function useReveal() {
 }
 
 // ── Card producto ──────────────────────────────────────────
-function ProductCard({ producto, color, index }) {
-  const navigate = useNavigate()
+function ProductCard({ producto, color, index, onSelect }) {
   const [ref, visible] = useReveal()
   return (
     <div
       ref={ref}
-      onClick={() => navigate(`/producto/${producto.id}`, { state: { producto } })}
+      onClick={onSelect}
       style={{
         opacity: visible ? 1 : 0,
         transform: visible ? 'translateY(0)' : 'translateY(24px)',
@@ -210,7 +210,7 @@ function ProductCard({ producto, color, index }) {
         <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/5">
           <p className="font-black text-base" style={{ color }}>{producto.precio}</p>
           <button
-            onClick={(e) => { e.stopPropagation(); navigate(`/producto/${producto.id}`, { state: { producto } }) }}
+            onClick={(e) => { e.stopPropagation(); onSelect() }}
             className="text-white text-xs font-bold px-4 py-1.5 rounded-lg transition-all active:scale-95"
             style={{ background: color }}
           >Pedir</button>
@@ -223,6 +223,7 @@ function ProductCard({ producto, color, index }) {
 // ── MENU ───────────────────────────────────────────────────
 function Menu() {
   const [categoriaActiva, setCategoriaActiva] = useState('Hamburguesas')
+  const [selectedProduct, setSelectedProduct] = useState(null)
   const tabsRef   = useRef(null)
   const activoRef = useRef(null)
   const navigate  = useNavigate()
@@ -288,7 +289,7 @@ function Menu() {
         <div className="px-4 py-6 max-w-6xl mx-auto">
           {/* Banner destacado */}
           {catData.productos.length > 0 && (
-            <div onClick={() => navigate(`/producto/${catData.productos[0].id}`, { state: { producto: catData.productos[0] } })}
+            <div onClick={() => setSelectedProduct(catData.productos[0])}
               className="group relative w-full h-56 md:h-72 rounded-2xl overflow-hidden mb-6 cursor-pointer border border-white/5 hover:border-white/15 transition-all duration-300">
               <img src={catData.productos[0].imagen} alt={catData.productos[0].nombre} loading="eager"
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
@@ -300,7 +301,7 @@ function Menu() {
                 <p className="text-gray-300 text-sm mb-5 max-w-sm font-medium">{catData.productos[0].desc}</p>
                 <div className="flex items-center gap-4">
                   <p className="font-black text-2xl" style={{ color: catData.color }}>{catData.productos[0].precio}</p>
-                  <button onClick={(e) => { e.stopPropagation(); navigate(`/producto/${catData.productos[0].id}`, { state: { producto: catData.productos[0] } }) }}
+                  <button onClick={(e) => { e.stopPropagation(); setSelectedProduct(catData.productos[0]) }}
                     className="text-white font-bold text-sm px-6 py-2.5 rounded-lg transition active:scale-95"
                     style={{ background: catData.color }}>Pedir ahora</button>
                 </div>
@@ -318,7 +319,7 @@ function Menu() {
               </div>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                 {catData.productos.slice(1).map((producto, i) => (
-                  <ProductCard key={producto.id} producto={producto} color={catData.color} index={i} />
+                  <ProductCard key={producto.id} producto={producto} color={catData.color} index={i} onSelect={() => setSelectedProduct(producto)} />
                 ))}
               </div>
             </>
@@ -342,6 +343,13 @@ function Menu() {
           </div>
         </div>
       </div>
+      {selectedProduct && (
+        <ProductConfiguratorModal
+          producto={selectedProduct}
+          onClose={() => setSelectedProduct(null)}
+          color={catData.color}
+        />
+      )}
     </div>
   )
 }
