@@ -442,7 +442,7 @@ function Navbar() {
                     <div>
                       <p className="text-white font-black text-sm leading-tight">{nombreCorto || 'Usuario'}</p>
                       <p className="text-red-200 text-[10px] truncate max-w-[140px]">{usuario.email}</p>
-                      {(esAdmin || esEmpleado || esCocina) && (
+                      {esAdmin && (
                         <span className="text-[9px] bg-yellow-400 text-yellow-900 font-black px-1.5 py-0.5 rounded-full uppercase">
                           {datosUsuario?.rol}
                         </span>

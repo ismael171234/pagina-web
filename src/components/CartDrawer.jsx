@@ -31,6 +31,30 @@ export default function CartDrawer() {
     if (carrito.length === 0) return
     setConfirmando(true)
     try {
+      // 1. Asegurar que el usuario existe en la tabla de perfiles 'usuarios' para evitar errores de FK
+      const { data: perfilExistente, error: perfilError } = await supabase
+        .from('usuarios')
+        .select('id')
+        .eq('id', usuario.id)
+        .maybeSingle()
+
+      if (perfilError) throw perfilError
+
+      if (!perfilExistente) {
+        const { error: insertPerfilErr } = await supabase
+          .from('usuarios')
+          .insert({
+            id: usuario.id,
+            nombre: usuario.user_metadata?.full_name || usuario.user_metadata?.name || usuario.email?.split('@')[0] || 'Cliente',
+            email: usuario.email,
+            foto: usuario.user_metadata?.avatar_url || null,
+            rol: 'usuario',
+            creado_en: new Date().toISOString()
+          })
+        if (insertPerfilErr) throw insertPerfilErr
+      }
+
+      // 2. Proceder con el pedido
       const { error } = await supabase
         .from('pedidos')
         .insert({
@@ -57,7 +81,7 @@ export default function CartDrawer() {
       navigate('/orders') // Redirige al historial de pedidos
     } catch (err) {
       console.error(err)
-      alert('Error al confirmar el pedido. Intenta de nuevo.')
+      alert('Error al confirmar el pedido: ' + (err.message || err))
     } finally {
       setConfirmando(false)
     }

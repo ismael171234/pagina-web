@@ -120,19 +120,19 @@ function FormularioResena({ pedido, usuarioId, onGuardado }) {
   }
 
   return (
-    <div className="mt-3 pt-3 border-t border-gray-100">
-      <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4">
+    <div className="mt-3 pt-3 border-t border-white/5">
+      <div className="bg-yellow-500/5 border border-yellow-500/10 rounded-2xl p-4">
         <div className="flex items-center gap-2 mb-3">
-          <FiMessageSquare className="text-yellow-600 flex-shrink-0" size={16} />
-          <p className="text-sm font-bold text-yellow-800">Como fue tu experiencia?</p>
+          <FiMessageSquare className="text-yellow-500 flex-shrink-0" size={16} />
+          <p className="text-sm font-bold text-yellow-400">Como fue tu experiencia?</p>
         </div>
 
         {/* Estrellas */}
         <div className="flex flex-col gap-1 mb-3">
-          <p className="text-xs text-gray-500 font-semibold">Calificacion</p>
+          <p className="text-xs text-gray-400 font-semibold">Calificacion</p>
           <Estrellas valor={calificacion} onChange={setCalificacion} size={28} />
           {calificacion > 0 && (
-            <p className="text-xs text-yellow-700 font-semibold mt-0.5">
+            <p className="text-xs text-yellow-400 font-semibold mt-0.5">
               {calificacion === 1 ? 'Muy malo' :
                calificacion === 2 ? 'Malo' :
                calificacion === 3 ? 'Regular' :
@@ -143,27 +143,27 @@ function FormularioResena({ pedido, usuarioId, onGuardado }) {
 
         {/* Comentario */}
         <div className="flex flex-col gap-1 mb-3">
-          <p className="text-xs text-gray-500 font-semibold">Comentario (opcional)</p>
+          <p className="text-xs text-gray-400 font-semibold">Comentario (opcional)</p>
           <textarea
             value={comentario}
             onChange={(e) => setComentario(e.target.value)}
             placeholder="Cuentanos como estuvo tu pedido..."
             rows={2}
             maxLength={200}
-            className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 outline-none focus:border-yellow-400 transition resize-none"
+            className="w-full bg-[#1a1a1a] border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-yellow-500 transition resize-none"
           />
-          <p className="text-xs text-gray-400 text-right">{comentario.length}/200</p>
+          <p className="text-xs text-gray-500 text-right">{comentario.length}/200</p>
         </div>
 
-        {error && <p className="text-xs text-red-500 font-semibold mb-2">{error}</p>}
+        {error && <p className="text-xs text-red-400 font-semibold mb-2">{error}</p>}
 
         <button
           onClick={handleEnviar}
           disabled={guardando}
-          className="w-full bg-yellow-500 hover:bg-yellow-400 active:scale-95 text-white font-bold py-2.5 rounded-xl transition-all text-sm flex items-center justify-center gap-2 disabled:opacity-60"
+          className="w-full bg-yellow-500 hover:bg-yellow-400 active:scale-95 text-black font-black py-2.5 rounded-xl transition-all text-sm flex items-center justify-center gap-2 disabled:opacity-60"
         >
           {guardando
-            ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ? <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
             : <><FiStar size={14} /> Enviar resena</>}
         </button>
       </div>
@@ -174,14 +174,14 @@ function FormularioResena({ pedido, usuarioId, onGuardado }) {
 // ── Reseña guardada ────────────────────────────────────────
 function ResenaGuardada({ resena }) {
   return (
-    <div className="mt-3 pt-3 border-t border-gray-100">
-      <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4">
+    <div className="mt-3 pt-3 border-t border-white/5">
+      <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
         <div className="flex items-center justify-between mb-2">
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Tu resena</p>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Tu resena</p>
           <Estrellas valor={resena.calificacion} readonly size={14} />
         </div>
         {resena.comentario && (
-          <p className="text-xs text-gray-600 leading-relaxed">{resena.comentario}</p>
+          <p className="text-xs text-gray-300 leading-relaxed">{resena.comentario}</p>
         )}
       </div>
     </div>
@@ -347,6 +347,30 @@ function Orders() {
     if (!usuario) { navigate('/login'); return }
     if (carrito.length === 0) return
     try {
+      // 1. Asegurar que el usuario existe en la tabla de perfiles 'usuarios' para evitar errores de FK
+      const { data: perfilExistente, error: perfilError } = await supabase
+        .from('usuarios')
+        .select('id')
+        .eq('id', usuario.id)
+        .maybeSingle()
+
+      if (perfilError) throw perfilError
+
+      if (!perfilExistente) {
+        const { error: insertPerfilErr } = await supabase
+          .from('usuarios')
+          .insert({
+            id: usuario.id,
+            nombre: usuario.user_metadata?.full_name || usuario.user_metadata?.name || usuario.email?.split('@')[0] || 'Cliente',
+            email: usuario.email,
+            foto: usuario.user_metadata?.avatar_url || null,
+            rol: 'usuario',
+            creado_en: new Date().toISOString()
+          })
+        if (insertPerfilErr) throw insertPerfilErr
+      }
+
+      // 2. Proceder con el pedido
       const { error } = await supabase
         .from('pedidos')
         .insert({
@@ -367,7 +391,7 @@ function Orders() {
       setVistaActiva('historial')
     } catch (err) {
       console.error(err)
-      alert('Error al confirmar el pedido. Intenta de nuevo.')
+      alert('Error al confirmar el pedido: ' + (err.message || err))
     }
   }
 
@@ -417,7 +441,7 @@ function Orders() {
     { id: 'perfil',    label: 'Mi perfil' },
   ]
   const rolLabel = { admin: 'Administrador', empleado: 'Mesero', cocina: 'Cocina', usuario: 'Cliente' }
-  const rolColor = { admin: 'bg-yellow-100 text-yellow-700', empleado: 'bg-blue-100 text-blue-700', cocina: 'bg-orange-100 text-orange-700', usuario: 'bg-green-100 text-green-700' }
+  const rolColor = { admin: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20', empleado: 'bg-blue-500/10 text-blue-400 border-blue-500/20', cocina: 'bg-orange-500/10 text-orange-400 border-orange-500/20', usuario: 'bg-green-500/10 text-green-400 border-green-500/20' }
 
   return (
     <>
@@ -432,10 +456,10 @@ function Orders() {
 
       <Toast toasts={toasts} onClose={cerrarToast} />
 
-      <div className="min-h-screen bg-gray-50 pb-32 orders-page">
+      <div className="min-h-screen bg-[#0a0a0a] text-white pb-32 orders-page">
 
         {/* Header */}
-        <div className="bg-red-700 px-4 py-4 text-white flex items-center justify-between">
+        <div className="bg-[#111] border-b border-white/5 px-4 py-4 text-white flex items-center justify-between">
           <div className="w-8" />
           <h1 className="text-xl font-bold">Mis Pedidos</h1>
           <button onClick={pedirPermiso}
@@ -446,10 +470,10 @@ function Orders() {
 
         {/* Banner notificaciones */}
         {permiso === 'default' && usuario && (
-          <div className="bg-red-50 border-b border-red-100 px-4 py-3 flex items-center justify-between gap-3">
+          <div className="bg-red-500/10 border-b border-red-500/20 px-4 py-3 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <FiBell className="text-red-500 flex-shrink-0" size={15} />
-              <p className="text-xs font-semibold text-red-700">Activa las notificaciones para saber cuando tu pedido esta listo</p>
+              <FiBell className="text-red-400 flex-shrink-0" size={15} />
+              <p className="text-xs font-semibold text-red-300">Activa las notificaciones para saber cuando tu pedido esta listo</p>
             </div>
             <button onClick={pedirPermiso}
               className="flex-shrink-0 bg-red-600 text-white text-xs font-bold px-3 py-1.5 rounded-full hover:bg-red-700 transition">
@@ -459,11 +483,11 @@ function Orders() {
         )}
 
         {/* Tabs */}
-        <div className="flex gap-2 px-4 py-3 bg-white shadow-sm sticky top-0 z-10 overflow-x-auto">
+        <div className="flex gap-2 px-4 py-3 bg-[#0d0d0d] border-b border-white/5 sticky top-0 z-10 overflow-x-auto">
           {tabs.map((tab) => (
             <button key={tab.id} onClick={() => setVistaActiva(tab.id)}
               className={`px-5 py-2 rounded-full text-sm font-semibold transition whitespace-nowrap flex-shrink-0 ${
-                vistaActiva === tab.id ? 'bg-red-600 text-white shadow-md' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                vistaActiva === tab.id ? 'bg-red-600 text-white shadow-md' : 'bg-white/5 text-gray-400 hover:bg-white/10'
               }`}>
               {tab.label}
             </button>
@@ -475,12 +499,12 @@ function Orders() {
           <>
             {carrito.length === 0 ? (
               <div className="flex flex-col items-center justify-center px-4 py-20">
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 flex flex-col items-center max-w-sm w-full">
-                  <FiShoppingCart className="text-gray-300 text-6xl mb-4" />
-                  <h2 className="text-xl font-bold text-gray-900 mb-2">Tu carrito esta vacio</h2>
+                <div className="bg-[#111] rounded-2xl border border-white/5 p-10 flex flex-col items-center max-w-sm w-full">
+                  <FiShoppingCart className="text-gray-600 text-6xl mb-4" />
+                  <h2 className="text-xl font-bold text-white mb-2">Tu carrito esta vacio</h2>
                   <p className="text-gray-400 text-sm text-center mb-6">Agrega productos desde nuestro menu</p>
                   <button onClick={() => navigate('/menu')}
-                    className="bg-red-600 text-white font-bold px-8 py-3 rounded-full hover:bg-red-700 transition shadow-md">
+                    className="bg-red-600 text-white font-bold px-8 py-3 rounded-full hover:bg-red-500 transition shadow-md">
                     Ver menu
                   </button>
                 </div>
@@ -488,52 +512,52 @@ function Orders() {
             ) : (
               <div className="max-w-2xl mx-auto px-4 py-6 flex flex-col gap-3">
                 {carrito.map((item, index) => (
-                  <div key={index} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex gap-4">
+                  <div key={index} className="bg-[#111] rounded-2xl border border-white/5 p-4 flex gap-4">
                     <div className="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0">
                       <img src={item.imagen} alt={item.nombre} className="w-full h-full object-cover" />
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm font-bold text-gray-900">{item.nombre}</p>
+                      <p className="text-sm font-bold text-white">{item.nombre}</p>
                       {item.opcion && <p className="text-xs text-gray-400 mt-0.5">{item.opcion}</p>}
                       {item.complemento && <p className="text-xs text-gray-400">{item.complemento.nombre}</p>}
-                      <p className="text-red-600 font-bold text-sm mt-1">
+                      <p className="text-red-400 font-bold text-sm mt-1">
                         S/ {((item.precio + item.extra) * item.cantidad).toFixed(2)}
                       </p>
                       <div className="flex items-center justify-between mt-2">
-                        <div className="flex items-center gap-2 border border-gray-200 rounded-full px-2 py-1">
+                        <div className="flex items-center gap-2 border border-white/10 rounded-full px-2.5 py-1">
                           <button onClick={() => actualizarCantidad(item.id, item.opcion, item.complemento, item.cantidad - 1)}
-                            className="text-gray-600 hover:text-red-600 transition"><FiMinus size={12} /></button>
-                          <span className="text-xs font-bold text-gray-900 w-4 text-center">{item.cantidad}</span>
+                            className="text-gray-400 hover:text-red-400 transition"><FiMinus size={12} /></button>
+                          <span className="text-xs font-bold text-white w-4 text-center">{item.cantidad}</span>
                           <button onClick={() => actualizarCantidad(item.id, item.opcion, item.complemento, item.cantidad + 1)}
-                            className="text-gray-600 hover:text-red-600 transition"><FiPlus size={12} /></button>
+                            className="text-gray-400 hover:text-red-400 transition"><FiPlus size={12} /></button>
                         </div>
                         <button onClick={() => eliminarProducto(item.id, item.opcion, item.complemento)}
-                          className="text-gray-400 hover:text-red-600 transition"><FiTrash2 size={16} /></button>
+                          className="text-gray-500 hover:text-red-400 transition"><FiTrash2 size={16} /></button>
                       </div>
                     </div>
                   </div>
                 ))}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mt-2">
-                  <h3 className="text-sm font-bold text-gray-900 mb-3">Resumen del pedido</h3>
+                <div className="bg-[#111] rounded-2xl border border-white/5 p-4 mt-2">
+                  <h3 className="text-sm font-bold text-white mb-3">Resumen del pedido</h3>
                   <div className="flex flex-col gap-2">
                     {carrito.map((item, index) => (
-                      <div key={index} className="flex justify-between text-xs text-gray-500">
+                      <div key={index} className="flex justify-between text-xs text-gray-400">
                         <span>{item.nombre} x{item.cantidad}</span>
                         <span>S/ {((item.precio + item.extra) * item.cantidad).toFixed(2)}</span>
                       </div>
                     ))}
-                    <div className="border-t border-gray-100 mt-2 pt-2 flex justify-between">
-                      <span className="font-bold text-gray-900 text-sm">Total</span>
-                      <span className="font-bold text-red-600 text-sm">S/ {total.toFixed(2)}</span>
+                    <div className="border-t border-white/5 mt-2 pt-2 flex justify-between">
+                      <span className="font-bold text-white text-sm">Total</span>
+                      <span className="font-bold text-red-400 text-sm">S/ {total.toFixed(2)}</span>
                     </div>
                   </div>
                 </div>
               </div>
             )}
             {carrito.length > 0 && (
-              <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-3 shadow-lg">
+              <div className="fixed bottom-0 left-0 right-0 bg-[#0d0d0d] border-t border-white/8 px-4 py-3.5 shadow-lg">
                 <button onClick={handleConfirmar}
-                  className="w-full bg-red-600 text-white font-bold py-3 rounded-full hover:bg-red-700 transition shadow-md active:scale-95">
+                  className="w-full bg-red-600 text-white font-black py-3.5 rounded-full hover:bg-red-500 transition shadow-md active:scale-95">
                   Confirmar pedido — S/ {total.toFixed(2)}
                 </button>
               </div>
@@ -545,12 +569,12 @@ function Orders() {
         {vistaActiva === 'historial' && (
           <div className="max-w-2xl mx-auto px-4 py-6 flex flex-col gap-4">
             {!usuario ? (
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 flex flex-col items-center">
-                <FiPackage className="text-gray-300 text-6xl mb-4" />
-                <h2 className="text-xl font-bold text-gray-900 mb-2">Inicia sesion</h2>
+              <div className="bg-[#111] rounded-2xl border border-white/5 p-10 flex flex-col items-center">
+                <FiPackage className="text-gray-600 text-6xl mb-4" />
+                <h2 className="text-xl font-bold text-white mb-2">Inicia sesion</h2>
                 <p className="text-gray-400 text-sm text-center mb-6">Para ver tu historial de pedidos</p>
                 <button onClick={() => navigate('/login')}
-                  className="bg-red-600 text-white font-bold px-8 py-3 rounded-full hover:bg-red-700 transition">
+                  className="bg-red-600 text-white font-bold px-8 py-3 rounded-full hover:bg-red-500 transition">
                   Iniciar sesion
                 </button>
               </div>
@@ -559,12 +583,12 @@ function Orders() {
                 <div className="w-8 h-8 border-4 border-red-600 border-t-transparent rounded-full animate-spin" />
               </div>
             ) : historial.length === 0 ? (
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 flex flex-col items-center">
-                <FiPackage className="text-gray-300 text-6xl mb-4" />
-                <h2 className="text-xl font-bold text-gray-900 mb-2">Sin pedidos aun</h2>
+              <div className="bg-[#111] rounded-2xl border border-white/5 p-10 flex flex-col items-center">
+                <FiPackage className="text-gray-600 text-6xl mb-4" />
+                <h2 className="text-xl font-bold text-white mb-2">Sin pedidos aun</h2>
                 <p className="text-gray-400 text-sm text-center mb-6">Haz tu primer pedido ahora</p>
                 <button onClick={() => navigate('/menu')}
-                  className="bg-red-600 text-white font-bold px-8 py-3 rounded-full hover:bg-red-700 transition">
+                  className="bg-red-600 text-white font-bold px-8 py-3 rounded-full hover:bg-red-500 transition">
                   Ver menu
                 </button>
               </div>
@@ -575,7 +599,7 @@ function Orders() {
                 const puedeResena    = pedido.estado === 'entregado' && !resenaExistente && !resenaLocal
 
                 return (
-                  <div key={pedido.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+                  <div key={pedido.id} className="bg-[#111] rounded-2xl border border-white/5 p-4">
                     {/* Cabecera */}
                     <div className="flex items-center justify-between mb-3">
                       <div>
@@ -583,7 +607,7 @@ function Orders() {
                         <p className="text-xs text-gray-400">{pedido.creado_en ? new Date(pedido.creado_en).toLocaleString('es-PE') : '—'}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-red-600 font-bold">S/ {pedido.total?.toFixed(2)}</p>
+                        <p className="text-red-400 font-bold">S/ {pedido.total?.toFixed(2)}</p>
                         <span className={`text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1 mt-1 ${estadoColor[pedido.estado]}`}>
                           {estadoIcono[pedido.estado]} {pedido.estado}
                         </span>
@@ -597,11 +621,11 @@ function Orders() {
                           {estadoPasos.map((paso, i) => (
                             <div key={paso} className="flex items-center flex-1">
                               <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
-                                estadoPasos.indexOf(pedido.estado) >= i ? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-400'
+                                estadoPasos.indexOf(pedido.estado) >= i ? 'bg-red-600 text-white' : 'bg-white/5 text-gray-500'
                               }`}>{i + 1}</div>
                               {i < estadoPasos.length - 1 && (
                                 <div className={`flex-1 h-1 mx-1 rounded ${
-                                  estadoPasos.indexOf(pedido.estado) > i ? 'bg-red-600' : 'bg-gray-200'
+                                  estadoPasos.indexOf(pedido.estado) > i ? 'bg-red-600' : 'bg-white/5'
                                 }`} />
                               )}
                             </div>
@@ -614,9 +638,9 @@ function Orders() {
                     )}
 
                     {/* Productos */}
-                    <div className="border-t border-gray-100 pt-3">
+                    <div className="border-t border-white/5 pt-3">
                       {pedido.productos?.map((prod, i) => (
-                        <div key={i} className="flex justify-between text-xs text-gray-500 py-0.5">
+                        <div key={i} className="flex justify-between text-xs text-gray-400 py-0.5">
                           <span>{prod.nombre} x{prod.cantidad} {prod.opcion ? `(${prod.opcion})` : ''}</span>
                           <span>S/ {((prod.precio + (prod.extra || 0)) * prod.cantidad).toFixed(2)}</span>
                         </div>
@@ -625,9 +649,9 @@ function Orders() {
 
                     {/* Confirmar recepcion */}
                     {pedido.estado === 'listo' && (
-                      <div className="mt-3 pt-3 border-t border-gray-100">
-                        <div className="bg-green-50 border border-green-200 rounded-xl p-3 mb-3">
-                          <p className="text-xs font-bold text-green-700 text-center">
+                      <div className="mt-3 pt-3 border-t border-white/5">
+                        <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-3 mb-3">
+                          <p className="text-xs font-bold text-green-400 text-center">
                             Tu pedido esta listo. Confirma cuando lo hayas recibido.
                           </p>
                         </div>
@@ -657,10 +681,10 @@ function Orders() {
                       resenaExistente
                         ? <ResenaGuardada resena={resenaExistente} />
                         : (
-                          <div className="mt-3 pt-3 border-t border-gray-100">
-                            <div className="bg-green-50 border border-green-200 rounded-2xl p-3 flex items-center gap-2">
-                              <FiCheckCircle className="text-green-600 flex-shrink-0" size={15} />
-                              <p className="text-xs font-bold text-green-700">Resena enviada. Gracias por tu opinion.</p>
+                          <div className="mt-3 pt-3 border-t border-white/5">
+                            <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-3 flex items-center gap-2">
+                              <FiCheckCircle className="text-green-400 flex-shrink-0" size={15} />
+                              <p className="text-xs font-bold text-green-300">Resena enviada. Gracias por tu opinion.</p>
                             </div>
                           </div>
                         )
@@ -676,35 +700,35 @@ function Orders() {
         {vistaActiva === 'perfil' && (
           <div className="max-w-lg mx-auto px-4 py-6 flex flex-col gap-4">
             {!usuario ? (
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 flex flex-col items-center">
-                <FiUser className="text-gray-300 text-6xl mb-4" />
-                <h2 className="text-xl font-bold text-gray-900 mb-2">Inicia sesion</h2>
+              <div className="bg-[#111] rounded-2xl border border-white/5 p-10 flex flex-col items-center">
+                <FiUser className="text-gray-600 text-6xl mb-4" />
+                <h2 className="text-xl font-bold text-white mb-2">Inicia sesion</h2>
                 <p className="text-gray-400 text-sm text-center mb-6">Para ver tu perfil</p>
                 <button onClick={() => navigate('/login')}
-                  className="bg-red-600 text-white font-bold px-8 py-3 rounded-full hover:bg-red-700 transition">
+                  className="bg-red-600 text-white font-bold px-8 py-3 rounded-full hover:bg-red-500 transition">
                   Iniciar sesion
                 </button>
               </div>
             ) : (
               <>
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col items-center text-center">
-                  <div className="w-20 h-20 rounded-full bg-red-100 border-4 border-red-200 flex items-center justify-center overflow-hidden mb-4">
+                <div className="bg-[#111] rounded-2xl border border-white/5 p-6 flex flex-col items-center text-center">
+                  <div className="w-20 h-20 rounded-full bg-red-500/10 border-4 border-red-500/20 flex items-center justify-center overflow-hidden mb-4">
                     {usuario.photoURL || usuario.user_metadata?.avatar_url
                       ? <img src={usuario.photoURL || usuario.user_metadata?.avatar_url} alt="foto" className="w-full h-full object-cover" />
-                      : <FiUser className="text-red-500 text-3xl" />}
+                      : <FiUser className="text-red-400 text-3xl" />}
                   </div>
-                  <p className="text-lg font-black text-gray-900">
+                  <p className="text-lg font-black text-white">
                     {datosUsuario?.nombre || usuario?.user_metadata?.full_name || usuario?.user_metadata?.name || 'Usuario'}
                   </p>
-                  <span className={`text-xs font-bold px-3 py-1 rounded-full mt-2 ${rolColor[datosUsuario?.rol] || 'bg-gray-100 text-gray-600'}`}>
+                  <span className={`text-xs font-bold px-3 py-1 rounded-full border mt-2 ${rolColor[datosUsuario?.rol] || 'bg-white/5 text-gray-400 border-white/5'}`}>
                     {rolLabel[datosUsuario?.rol] || 'Cliente'}
                   </span>
 
                   <button onClick={permiso !== 'granted' ? pedirPermiso : undefined}
-                    className={`mt-3 flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-full transition ${
-                      permiso === 'granted' ? 'bg-green-50 text-green-600 cursor-default' :
-                      permiso === 'denied'  ? 'bg-red-50 text-red-500 cursor-default' :
-                      'bg-gray-50 text-gray-500 hover:bg-red-50 hover:text-red-500 cursor-pointer'
+                    className={`mt-3 flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-full border transition ${
+                      permiso === 'granted' ? 'bg-green-500/10 text-green-400 border-green-500/20 cursor-default' :
+                      permiso === 'denied'  ? 'bg-red-500/10 text-red-400 border-red-500/20 cursor-default' :
+                      'bg-white/5 text-gray-400 border-white/5 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20 cursor-pointer'
                     }`}>
                     {permiso === 'granted' ? <FiBell size={12} /> : <FiBellOff size={12} />}
                     {permiso === 'granted' ? 'Notificaciones activas' :
@@ -718,71 +742,71 @@ function Orders() {
                       { valor: historial.filter(p => p.estado === 'entregado').length,                                               label: 'Completados' },
                       { valor: `S/${historial.filter(p => p.estado === 'entregado').reduce((a, p) => a + (p.total || 0), 0).toFixed(0)}`, label: 'Gastado' },
                     ].map((stat) => (
-                      <div key={stat.label} className="flex-1 bg-gray-50 rounded-xl p-3 text-center border border-gray-100">
-                        <p className="text-red-600 font-black text-xl">{stat.valor}</p>
-                        <p className="text-gray-500 text-xs mt-0.5">{stat.label}</p>
+                      <div key={stat.label} className="flex-1 bg-white/5 rounded-xl p-3 text-center border border-white/5">
+                        <p className="text-red-400 font-black text-xl">{stat.valor}</p>
+                        <p className="text-gray-400 text-xs mt-0.5">{stat.label}</p>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                  <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-                    <p className="font-bold text-gray-900 text-sm">Datos de la cuenta</p>
+                <div className="bg-[#111] rounded-2xl border border-white/5 overflow-hidden">
+                  <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between">
+                    <p className="font-bold text-white text-sm">Datos de la cuenta</p>
                     {guardadoOk && (
-                      <span className="text-xs text-green-600 font-semibold flex items-center gap-1">
+                      <span className="text-xs text-green-400 font-semibold flex items-center gap-1">
                         <FiCheck size={12} /> Guardado
                       </span>
                     )}
                   </div>
-                  <div className="px-5 py-4 border-b border-gray-100">
+                  <div className="px-5 py-4 border-b border-white/5">
                     <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-2">Nombre</p>
                     {editando ? (
                       <div className="flex items-center gap-2">
                         <input type="text" value={nombreEdit}
                           onChange={(e) => setNombreEdit(e.target.value)}
                           onKeyDown={(e) => e.key === 'Enter' && guardarNombre()}
-                          className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm font-semibold text-gray-900 outline-none focus:border-red-400 transition"
+                          className="flex-1 bg-[#1a1a1a] border border-white/10 rounded-xl px-3 py-2 text-sm font-semibold text-white outline-none focus:border-red-500 transition"
                           autoFocus />
                         <button onClick={guardarNombre} disabled={guardando}
-                          className="w-9 h-9 bg-red-600 hover:bg-red-700 text-white rounded-xl flex items-center justify-center transition active:scale-95">
+                          className="w-9 h-9 bg-red-600 hover:bg-red-500 text-white rounded-xl flex items-center justify-center transition active:scale-95">
                           {guardando ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <FiCheck size={15} />}
                         </button>
                         <button onClick={() => setEditando(false)}
-                          className="w-9 h-9 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-xl flex items-center justify-center transition">
+                          className="w-9 h-9 bg-white/5 hover:bg-white/10 text-gray-400 rounded-xl flex items-center justify-center transition">
                           <FiX size={15} />
                         </button>
                       </div>
                     ) : (
                       <div className="flex items-center justify-between">
-                        <p className="text-sm font-semibold text-gray-900">
+                        <p className="text-sm font-semibold text-white">
                           {datosUsuario?.nombre || usuario?.displayName || '—'}
                         </p>
                         <button onClick={iniciarEdicion}
-                          className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-600 font-semibold transition">
+                          className="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 font-semibold transition">
                           <FiEdit2 size={12} /> Editar
                         </button>
                       </div>
                     )}
                   </div>
-                  <div className="px-5 py-4 border-b border-gray-100">
+                  <div className="px-5 py-4 border-b border-white/5">
                     <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-2">Correo electronico</p>
                     <div className="flex items-center gap-2">
                       <FiMail className="text-gray-400 flex-shrink-0" size={14} />
-                      <p className="text-sm font-semibold text-gray-900">{usuario.email}</p>
+                      <p className="text-sm font-semibold text-white">{usuario.email}</p>
                     </div>
                   </div>
                   <div className="px-5 py-4">
                     <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-2">Tipo de cuenta</p>
                     <div className="flex items-center gap-2">
                       <FiShield className="text-gray-400 flex-shrink-0" size={14} />
-                      <p className="text-sm font-semibold text-gray-900">{rolLabel[datosUsuario?.rol] || 'Cliente'}</p>
+                      <p className="text-sm font-semibold text-white">{rolLabel[datosUsuario?.rol] || 'Cliente'}</p>
                     </div>
                   </div>
                 </div>
 
                 <button onClick={handleCerrarSesion}
-                  className="w-full flex items-center justify-center gap-2 bg-white border border-gray-200 hover:bg-red-50 hover:border-red-200 text-gray-700 hover:text-red-600 font-bold py-3.5 rounded-2xl transition-all duration-200 text-sm shadow-sm">
+                  className="w-full flex items-center justify-center gap-2 bg-red-600/10 hover:bg-red-600/20 text-red-400 font-bold py-3.5 rounded-2xl border border-red-500/20 hover:border-red-500/40 transition-all duration-200 text-sm active:scale-95 shadow-lg">
                   <FiLogOut size={16} />
                   Cerrar sesion
                 </button>
