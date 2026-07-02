@@ -196,12 +196,61 @@ function Orders() {
   const location = useLocation()
 
   const [vistaActiva, setVistaActiva] = useState(location.state?.tab || 'carrito')
+  const [pagoMensaje, setPagoMensaje] = useState(null)
 
   useEffect(() => {
     if (location.state?.tab) {
       setVistaActiva(location.state.tab)
     }
   }, [location.state?.tab])
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    const pagoStatus = params.get('pago')
+    const pedidoId = params.get('pedido_id')
+    const pedidoConfirmado = params.get('pedido_confirmado')
+
+    if (pagoStatus && pedidoId) {
+      if (pagoStatus === 'exitoso') {
+        const actualizarPago = async () => {
+          try {
+            await supabase
+              .from('pedidos')
+              .update({ pago_estado: 'aprobado' })
+              .eq('id', pedidoId)
+          } catch (err) {
+            console.error('Error al actualizar pago:', err)
+          }
+        }
+        actualizarPago()
+        setPagoMensaje({
+          tipo: 'success',
+          titulo: '¡Pago Realizado con Éxito!',
+          cuerpo: 'Tu pago en línea por Mercado Pago fue procesado correctamente. ¡Gracias por tu compra!'
+        })
+      } else if (pagoStatus === 'fallido') {
+        setPagoMensaje({
+          tipo: 'error',
+          titulo: 'Pago no completado',
+          cuerpo: 'El pago en línea fue cancelado o falló. Tu pedido se registró con pago pendiente contra entrega.'
+        })
+      } else if (pagoStatus === 'pendiente') {
+        setPagoMensaje({
+          tipo: 'warning',
+          titulo: 'Pago en Verificación',
+          cuerpo: 'El pago se encuentra pendiente de acreditación por Mercado Pago.'
+        })
+      }
+      navigate('/orders', { replace: true, state: { tab: 'historial' } })
+    } else if (pedidoConfirmado) {
+      setPagoMensaje({
+        tipo: 'success',
+        titulo: '¡Pedido Recibido!',
+        cuerpo: 'Tu pedido ha sido registrado con éxito. Te avisaremos cuando esté listo.'
+      })
+      navigate('/orders', { replace: true, state: { tab: 'historial' } })
+    }
+  }, [location.search])
 
   const [historial, setHistorial]     = useState([])
   const [cargando, setCargando]       = useState(true)
@@ -494,6 +543,24 @@ function Orders() {
           ))}
         </div>
 
+        {pagoMensaje && (
+          <div className="max-w-2xl mx-auto px-4 pt-5">
+            <div className={`border rounded-2xl p-4 flex gap-3 relative ${
+              pagoMensaje.tipo === 'success' ? 'bg-green-500/10 border-green-500/20 text-green-400' :
+              pagoMensaje.tipo === 'error' ? 'bg-red-500/10 border-red-500/20 text-red-400' :
+              'bg-yellow-500/10 border-yellow-500/20 text-yellow-400'
+            }`}>
+              <div className="flex-1">
+                <p className="text-sm font-bold">{pagoMensaje.titulo}</p>
+                <p className="text-xs text-gray-400 mt-1 leading-relaxed">{pagoMensaje.cuerpo}</p>
+              </div>
+              <button onClick={() => setPagoMensaje(null)} className="text-gray-500 hover:text-white transition flex-shrink-0 self-start">
+                <FiX size={16} />
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* ══ CARRITO ══ */}
         {vistaActiva === 'carrito' && (
           <>
@@ -639,13 +706,37 @@ function Orders() {
 
                     {/* Productos */}
                     <div className="border-t border-white/5 pt-3">
-                      {pedido.productos?.map((prod, i) => (
+                      {(pedido.productos?.filter(p => p.id !== '_metadata') || []).map((prod, i) => (
                         <div key={i} className="flex justify-between text-xs text-gray-400 py-0.5">
                           <span>{prod.nombre} x{prod.cantidad} {prod.opcion ? `(${prod.opcion})` : ''}</span>
                           <span>S/ {((prod.precio + (prod.extra || 0)) * prod.cantidad).toFixed(2)}</span>
                         </div>
                       ))}
                     </div>
+
+                    {/* Detalles de entrega y pago */}
+                    {(() => {
+                      const tipoEntrega = pedido.tipo_entrega || pedido.productos?.find(p => p.id === '_metadata')?.tipo_entrega || 'recojo'
+                      const direccion = pedido.direccion_entrega || pedido.productos?.find(p => p.id === '_metadata')?.direccion || null
+                      const telefono = pedido.telefono_contacto || pedido.productos?.find(p => p.id === '_metadata')?.telefono || null
+                      const costoDelivery = pedido.costo_delivery !== undefined ? parseFloat(pedido.costo_delivery) : (pedido.productos?.find(p => p.id === '_metadata')?.costo_delivery || 0)
+                      const metodoPago = pedido.metodo_pago || pedido.productos?.find(p => p.id === '_metadata')?.metodo_pago || 'efectivo'
+                      const pagoEstado = pedido.pago_estado || pedido.productos?.find(p => p.id === '_metadata')?.pago_estado || 'pendiente'
+
+                      return (
+                        <div className="mt-2.5 pt-2.5 border-t border-dashed border-white/10 text-[11px] text-gray-400 space-y-1 bg-white/5 p-2 rounded-xl border border-white/5">
+                          <p><span className="font-bold text-gray-300">Entrega:</span> <span className="capitalize font-semibold">{tipoEntrega === 'recojo' ? 'Recojo en local' : 'Envío a domicilio'}</span>{tipoEntrega === 'delivery' && ` (Envío: S/ ${costoDelivery.toFixed(2)})`}</p>
+                          {tipoEntrega === 'delivery' && direccion && <p><span className="font-bold text-gray-300">Dirección:</span> {direccion}</p>}
+                          {telefono && <p><span className="font-bold text-gray-300">Teléfono:</span> {telefono}</p>}
+                          <p>
+                            <span className="font-bold text-gray-300">Pago:</span> <span className="capitalize font-semibold">{metodoPago === 'efectivo' ? 'Efectivo / Yape' : 'Mercado Pago (Online)'}</span> 
+                            <span className={`ml-2 px-2 py-0.5 rounded-full font-bold text-[9px] ${pagoEstado === 'aprobado' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20'}`}>
+                              {pagoEstado === 'aprobado' ? 'Pagado' : 'Pendiente'}
+                            </span>
+                          </p>
+                        </div>
+                      )
+                    })()}
 
                     {/* Confirmar recepcion */}
                     {pedido.estado === 'listo' && (
