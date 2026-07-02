@@ -3,7 +3,7 @@ import { supabase } from '../supabase/supabaseClient'
 
 const AuthContext = createContext()
 
-const ADMINS = ['admin@laesquina.com']
+const ADMINS = ['admin@laesquina.com', 'antony.delgadoestrada@gmail.com', 'ismael171234@gmail.com']
 
 export function useAuth() {
   return useContext(AuthContext)
