@@ -5,6 +5,17 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../supabase/supabaseClient'
 import { FiX, FiMinus, FiPlus, FiTrash2, FiShoppingCart, FiCreditCard, FiArrowLeft } from 'react-icons/fi'
 
+const generateUUID = () => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0
+    const v = c === 'x' ? r : (r & 0x3 | 0x8)
+    return v.toString(16)
+  })
+}
+
 export default function CartDrawer() {
   const {
     carrito,
@@ -124,8 +135,11 @@ export default function CartDrawer() {
         if (insertPerfilErr) throw insertPerfilErr
       }
 
+      const generatedId = generateUUID()
+
       // 2. Armar e insertar el pedido en Supabase
       const nuevoPedido = {
+        id:            generatedId,
         usuario_id:    usuario.id,
         usuario_email: usuario.email,
         productos: carrito.map((item) => ({
@@ -189,6 +203,7 @@ export default function CartDrawer() {
         const { data: insertedOrderFallback, error: orderErrFallback } = await supabase
           .from('pedidos')
           .insert({
+            id:            generatedId,
             usuario_id:    usuario.id,
             usuario_email: usuario.email,
             productos: productosConMetadata,
