@@ -6,13 +6,9 @@ import {
   FiShoppingBag, FiUsers, FiClock, FiCheckCircle,
   FiXCircle, FiTruck, FiDollarSign, FiList,
   FiLogOut, FiHome, FiMenu, FiX, FiBarChart2,
-<<<<<<< HEAD
-  FiTrendingUp, FiAward, FiStar, FiSettings, FiCreditCard
-=======
   FiTrendingUp, FiAward, FiStar, FiPackage,
   FiSettings, FiEdit2, FiTrash2, FiPlus, FiToggleLeft,
   FiToggleRight, FiSave, FiAlertCircle
->>>>>>> feature/paneladmin
 } from 'react-icons/fi'
 import lesq from '../assets/lesq.png'
 
@@ -59,18 +55,6 @@ function Admin() {
   const [guardandoConfig, setGuardandoConfig] = useState(false)
   const [configGuardada, setConfigGuardada]   = useState(false)
 
-  // Estados de Ajustes
-  const [ajustes, setAjustes] = useState({
-    delivery_gratis_desde: 50,
-    delivery_costo: 5,
-    delivery_coordinar: false,
-    mercado_pago_public_key: '',
-    mercado_pago_access_token: '',
-    mercado_pago_activo: false
-  })
-  const [guardandoAjustes, setGuardandoAjustes] = useState(false)
-  const [tablaExiste, setTablaExiste] = useState(true)
-
   useEffect(() => {
     if (!usuario) { navigate('/login'); return }
     if (datosUsuario === undefined || datosUsuario === null) return
@@ -82,64 +66,8 @@ function Admin() {
     if (!autorizado) return
     fetchTodo()
 
-<<<<<<< HEAD
-    const fetchPedidos = async () => {
-      const { data } = await supabase
-        .from('pedidos')
-        .select('*')
-      if (data) {
-        setPedidos(data.sort((a, b) => new Date(b.creado_en) - new Date(a.creado_en)))
-        setCargando(false)
-      }
-    }
-
-    const fetchUsuarios = async () => {
-      const { data } = await supabase.from('usuarios').select('*')
-      if (data) setUsuarios(data)
-    }
-
-    const fetchResenas = async () => {
-      const { data } = await supabase.from('resenas').select('*')
-      if (data) setResenas(data)
-    }
-
-    const fetchAjustes = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('configuraciones')
-          .select('*')
-          .eq('clave', 'ajustes_generales')
-          .maybeSingle()
-
-        if (error) {
-          if (error.message.includes('relation "public.configuraciones" does not exist') || error.code === '42P01') {
-            setTablaExiste(false)
-          }
-          throw error
-        }
-        if (data && data.valor) {
-          setAjustes(data.valor)
-        }
-        setTablaExiste(true)
-      } catch (err) {
-        console.error('Error al cargar ajustes:', err.message)
-      }
-    }
-
-    fetchPedidos()
-    fetchUsuarios()
-    fetchResenas()
-    fetchAjustes()
-
-    const subPedidos = supabase
-      .channel('admin-pedidos')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, () => {
-        fetchPedidos()
-      })
-=======
     const subPedidos = supabase.channel('admin-pedidos')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, fetchPedidos)
->>>>>>> feature/paneladmin
       .subscribe()
     const subUsuarios = supabase.channel('admin-usuarios')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'usuarios' }, fetchUsuarios)
@@ -148,22 +76,10 @@ function Admin() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'productos' }, fetchProductos)
       .subscribe()
 
-    const subAjustes = supabase
-      .channel('admin-ajustes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'configuraciones' }, () => {
-        fetchAjustes()
-      })
-      .subscribe()
-
     return () => {
       supabase.removeChannel(subPedidos)
       supabase.removeChannel(subUsuarios)
-<<<<<<< HEAD
-      supabase.removeChannel(subResenas)
-      supabase.removeChannel(subAjustes)
-=======
       supabase.removeChannel(subProductos)
->>>>>>> feature/paneladmin
     }
   }, [autorizado])
 
@@ -181,37 +97,6 @@ function Admin() {
     if (data) setConfig(data)
   }
 
-<<<<<<< HEAD
-  const saveAjustes = async (e) => {
-    e.preventDefault()
-    setGuardandoAjustes(true)
-    try {
-      const { error } = await supabase
-        .from('configuraciones')
-        .upsert({
-          clave: 'ajustes_generales',
-          valor: ajustes,
-          actualizado_en: new Date().toISOString()
-        })
-
-      if (error) throw error
-      alert('Ajustes guardados correctamente.')
-    } catch (err) {
-      console.error(err)
-      alert('Error al guardar ajustes: ' + (err.message || err))
-    } finally {
-      setGuardandoAjustes(false)
-    }
-  }
-
-  // ── Stats base ──
-  const pedidosHoy = pedidos.filter((p) => {
-    const f = p.creado_en ? new Date(p.creado_en) : null
-    return f && f.toDateString() === new Date().toDateString()
-  })
-  const totalHoy        = pedidosHoy.reduce((acc, p) => acc + (p.total || 0), 0)
-  const totalGeneral    = pedidos.reduce((acc, p) => acc + (p.total || 0), 0)
-=======
   const cambiarEstado = async (id, estado) => {
     await supabase.from('pedidos').update({ estado }).eq('id', id)
   }
@@ -260,7 +145,6 @@ function Admin() {
   const pedidosHoy = pedidos.filter(p => { const f = p.creado_en ? new Date(p.creado_en) : null; return f && f.toDateString() === new Date().toDateString() })
   const totalHoy = pedidosHoy.reduce((a, p) => a + (p.total || 0), 0)
   const totalGeneral = pedidos.reduce((a, p) => a + (p.total || 0), 0)
->>>>>>> feature/paneladmin
   const pedidosPendientes = pedidos.filter(p => p.estado === 'pendiente').length
   const pedidosPreparando = pedidos.filter(p => p.estado === 'preparando').length
 
@@ -292,20 +176,12 @@ function Admin() {
   const estadoIcono = { pendiente: <FiClock className="text-yellow-500" />, preparando: <FiShoppingBag className="text-blue-500" />, listo: <FiCheckCircle className="text-green-500" />, entregado: <FiTruck className="text-gray-500" />, cancelado: <FiXCircle className="text-red-500" /> }
 
   const navItems = [
-<<<<<<< HEAD
-    { id: 'dashboard', label: 'Dashboard',  icon: <FiHome />      },
-    { id: 'reportes',  label: 'Reportes',   icon: <FiBarChart2 /> },
-    { id: 'pedidos',   label: 'Pedidos',    icon: <FiList />      },
-    { id: 'usuarios',  label: 'Usuarios',   icon: <FiUsers />     },
-    { id: 'configuracion', label: 'Ajustes', icon: <FiSettings />  },
-=======
     { id: 'dashboard',  label: 'Dashboard',   icon: <FiHome />      },
     { id: 'reportes',   label: 'Reportes',    icon: <FiBarChart2 /> },
     { id: 'pedidos',    label: 'Pedidos',     icon: <FiList />      },
     { id: 'productos',  label: 'Productos',   icon: <FiPackage />   },
     { id: 'usuarios',   label: 'Usuarios',    icon: <FiUsers />     },
     { id: 'config',     label: 'Configuracion', icon: <FiSettings /> },
->>>>>>> feature/paneladmin
   ]
 
   const productosFiltrados = filtroCategoria === 'Todas' ? productos : productos.filter(p => p.categoria === filtroCategoria)
@@ -645,26 +521,6 @@ function Admin() {
               ) : pedidos.length === 0 ? (
                 <p className="text-center text-gray-400 py-10">No hay pedidos aun</p>
               ) : (
-<<<<<<< HEAD
-                pedidos.map((pedido) => {
-                  const tipoEntrega = pedido.tipo_entrega || pedido.productos?.find(p => p.id === '_metadata')?.tipo_entrega || 'recojo'
-                  const direccion = pedido.direccion_entrega || pedido.productos?.find(p => p.id === '_metadata')?.direccion || null
-                  const telefono = pedido.telefono_contacto || pedido.productos?.find(p => p.id === '_metadata')?.telefono || null
-                  const costoDelivery = pedido.costo_delivery !== undefined ? parseFloat(pedido.costo_delivery) : (pedido.productos?.find(p => p.id === '_metadata')?.costo_delivery || 0)
-                  const metodoPago = pedido.metodo_pago || pedido.productos?.find(p => p.id === '_metadata')?.metodo_pago || 'efectivo'
-                  const pagoEstado = pedido.pago_estado || pedido.productos?.find(p => p.id === '_metadata')?.pago_estado || 'pendiente'
-
-                  // Filtrar los productos para no listar el item especial de metadatos en la tabla visual
-                  const productosVisibles = pedido.productos?.filter(p => p.id !== '_metadata') || []
-
-                  return (
-                    <div key={pedido.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <div>
-                          <p className="text-xs text-gray-400">#{pedido.id.slice(0, 8)}</p>
-                          <p className="text-sm font-bold text-gray-900">{pedido.usuario_email || pedido.usuarioEmail}</p>
-                          <p className="text-xs text-gray-400">{pedido.creado_en ? new Date(pedido.creado_en).toLocaleString('es-PE') : '—'}</p>
-=======
                 pedidos.map((pedido) => (
                   <div key={pedido.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition">
                     <div className="flex items-center justify-between mb-3">
@@ -686,54 +542,9 @@ function Admin() {
                         <div key={i} className="flex justify-between text-xs text-gray-500 py-0.5">
                           <span>{prod.nombre} x{prod.cantidad} {prod.opcion ? `(${prod.opcion})` : ''}</span>
                           <span>S/ {((prod.precio + (prod.extra || 0)) * prod.cantidad).toFixed(2)}</span>
->>>>>>> feature/paneladmin
                         </div>
-                        <div className="text-right">
-                          <p className="text-red-600 font-bold">S/ {pedido.total?.toFixed(2)}</p>
-                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1 mt-1 ${estadoColor[pedido.estado]}`}>
-                            {estadoIcono[pedido.estado]} {pedido.estado}
-                          </span>
-                        </div>
-                      </div>
-                      
-                      {/* Listado de Productos */}
-                      <div className="border-t border-gray-100 pt-3">
-                        {productosVisibles.map((prod, i) => (
-                          <div key={i} className="flex justify-between text-xs text-gray-500 py-0.5">
-                            <span>{prod.nombre} x{prod.cantidad} {prod.opcion ? `(${prod.opcion})` : ''}</span>
-                            <span>S/ {((prod.precio + (prod.extra || 0)) * prod.cantidad).toFixed(2)}</span>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Detalles de entrega y método de pago */}
-                      <div className="mt-2.5 pt-2.5 border-t border-dashed border-gray-200 text-xs text-gray-500 space-y-1 bg-gray-50/50 p-2 rounded-xl border border-gray-100">
-                        <p><span className="font-bold text-gray-700">Tipo de Entrega:</span> <span className="capitalize font-semibold">{tipoEntrega}</span>{tipoEntrega === 'delivery' && ` (Envío: S/ ${costoDelivery.toFixed(2)})`}</p>
-                        {tipoEntrega === 'delivery' && direccion && <p><span className="font-bold text-gray-700">Dirección:</span> {direccion}</p>}
-                        {telefono && <p><span className="font-bold text-gray-700">Teléfono:</span> {telefono}</p>}
-                        <p>
-                          <span className="font-bold text-gray-700">Método de Pago:</span> <span className="capitalize font-semibold">{metodoPago === 'efectivo' ? 'Efectivo / Yape' : 'Mercado Pago (Online)'}</span> 
-                          <span className={`ml-2 px-2 py-0.5 rounded-full font-bold text-[10px] ${pagoEstado === 'aprobado' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                            {pagoEstado === 'aprobado' ? 'Pagado' : 'Pendiente'}
-                          </span>
-                        </p>
-                      </div>
-
-                      <div className="flex gap-2 flex-wrap mt-3">
-                        {['pendiente', 'preparando', 'listo', 'entregado', 'cancelado'].map((estado) => (
-                          <button key={estado} onClick={() => cambiarEstado(pedido.id, estado)}
-                            className={`text-xs font-semibold px-3 py-1 rounded-full transition ${
-                              pedido.estado === estado ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                            }`}>
-                            {estado}
-                          </button>
-                        ))}
-                      </div>
+                      ))}
                     </div>
-<<<<<<< HEAD
-                  )
-                })
-=======
                     <div className="flex gap-2 flex-wrap">
                       {['pendiente', 'preparando', 'listo', 'entregado', 'cancelado'].map((estado) => (
                         <button key={estado} onClick={() => cambiarEstado(pedido.id, estado)}
@@ -744,7 +555,6 @@ function Admin() {
                     </div>
                   </div>
                 ))
->>>>>>> feature/paneladmin
               )}
             </div>
           )}
@@ -866,125 +676,6 @@ function Admin() {
             </div>
           )}
 
-<<<<<<< HEAD
-          {/* ══ CONFIGURACIÓN (AJUSTES) ══ */}
-          {vistaActiva === 'configuracion' && (
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <h2 className="text-lg font-bold text-gray-900">Ajustes del restaurante</h2>
-                  <p className="text-xs text-gray-400 mt-0.5">Controla las tarifas de delivery y la pasarela de pagos</p>
-                </div>
-              </div>
-
-              {!tablaExiste ? (
-                <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
-                  <h3 className="text-sm font-bold text-red-800 mb-2 flex items-center gap-2">
-                    ⚠️ Tabla de configuración no inicializada en Supabase
-                  </h3>
-                  <p className="text-xs text-red-600 mb-4 leading-relaxed">
-                    Para poder guardar las tarifas de envío y credenciales de Mercado Pago, debes inicializar la tabla de base de datos correspondiente en Supabase.
-                    Copia el siguiente script SQL, ve al apartado <b>SQL Editor</b> en tu consola de Supabase, pégalo y presiona el botón <b>Run</b>:
-                  </p>
-                  <pre className="bg-gray-900 text-green-400 p-4 rounded-xl text-[11px] overflow-x-auto mb-4 font-mono select-all">
-{`-- Crear tabla de configuraciones y habilitar RLS
-CREATE TABLE IF NOT EXISTS public.configuraciones (
-    clave text PRIMARY KEY,
-    valor jsonb NOT NULL,
-    actualizado_en timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
-);
-
-ALTER TABLE public.configuraciones ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Lectura pública de ajustes" ON public.configuraciones;
-CREATE POLICY "Lectura pública de ajustes" ON public.configuraciones FOR SELECT USING (true);
-DROP POLICY IF EXISTS "Escritura solo para admins" ON public.configuraciones;
-CREATE POLICY "Escritura solo para admins" ON public.configuraciones FOR ALL USING (
-    EXISTS (SELECT 1 FROM public.usuarios WHERE usuarios.id = auth.uid() AND usuarios.rol = 'admin')
-);
-
--- Agregar columnas a la tabla de pedidos
-ALTER TABLE public.pedidos ADD COLUMN IF NOT EXISTS tipo_entrega text DEFAULT 'recojo';
-ALTER TABLE public.pedidos ADD COLUMN IF NOT EXISTS direccion_entrega text;
-ALTER TABLE public.pedidos ADD COLUMN IF NOT EXISTS telefono_contacto text;
-ALTER TABLE public.pedidos ADD COLUMN IF NOT EXISTS metodo_pago text DEFAULT 'efectivo';
-ALTER TABLE public.pedidos ADD COLUMN IF NOT EXISTS costo_delivery numeric DEFAULT 0;
-ALTER TABLE public.pedidos ADD COLUMN IF NOT EXISTS pago_estado text DEFAULT 'pendiente';`}
-                  </pre>
-                  <button onClick={() => window.location.reload()}
-                    className="bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-5 py-2.5 rounded-xl transition shadow-md">
-                    Reintentar conexión
-                  </button>
-                </div>
-              ) : (
-                <form onSubmit={saveAjustes} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col gap-5">
-                  
-                  {/* Delivery Settings */}
-                  <div>
-                    <h3 className="text-sm font-bold text-gray-900 mb-3 border-b border-gray-100 pb-2">Tarifas y Políticas de Envío</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-xs text-gray-500 font-semibold mb-1 block">Costo de Envío fijo (S/)</label>
-                        <input type="number" step="0.1" min="0" disabled={ajustes.delivery_coordinar}
-                          value={ajustes.delivery_costo}
-                          onChange={(e) => setAjustes({...ajustes, delivery_costo: parseFloat(e.target.value) || 0})}
-                          className="w-full border border-gray-200 rounded-xl px-3.5 py-2 text-sm outline-none focus:border-red-400 transition disabled:bg-gray-100" />
-                      </div>
-                      <div>
-                        <label className="text-xs text-gray-500 font-semibold mb-1 block">Envío gratuito a partir de compras mayores a (S/)</label>
-                        <input type="number" step="1" min="0"
-                          value={ajustes.delivery_gratis_desde}
-                          onChange={(e) => setAjustes({...ajustes, delivery_gratis_desde: parseFloat(e.target.value) || 0})}
-                          className="w-full border border-gray-200 rounded-xl px-3.5 py-2 text-sm outline-none focus:border-red-400 transition" />
-                      </div>
-                    </div>
-                    <label className="flex items-center gap-2 mt-3.5 cursor-pointer">
-                      <input type="checkbox" checked={ajustes.delivery_coordinar}
-                        onChange={(e) => setAjustes({...ajustes, delivery_coordinar: e.target.checked})}
-                        className="rounded text-red-600 focus:ring-red-500" />
-                      <span className="text-xs text-gray-600 font-medium">Coordinar envío con el motorizado (costo variable a pagar al repartidor)</span>
-                    </label>
-                  </div>
-
-                  {/* Mercado Pago Settings */}
-                  <div>
-                    <h3 className="text-sm font-bold text-gray-900 mb-3 border-b border-gray-100 pb-2">Pasarela de Pagos (Mercado Pago)</h3>
-                    <label className="flex items-center gap-2 mb-4 cursor-pointer">
-                      <input type="checkbox" checked={ajustes.mercado_pago_activo}
-                        onChange={(e) => setAjustes({...ajustes, mercado_pago_activo: e.target.checked})}
-                        className="rounded text-red-600 focus:ring-red-500" />
-                      <span className="text-xs text-gray-800 font-bold">Activar Mercado Pago para recibir cobros en línea</span>
-                    </label>
-
-                    {ajustes.mercado_pago_activo && (
-                      <div className="grid grid-cols-1 gap-4 bg-gray-50 rounded-xl p-4 border border-gray-200">
-                        <div>
-                          <label className="text-xs text-gray-500 font-semibold mb-1 block">Mercado Pago Public Key (Clave Pública)</label>
-                          <input type="text" placeholder="TEST-a1b2..."
-                            value={ajustes.mercado_pago_public_key}
-                            onChange={(e) => setAjustes({...ajustes, mercado_pago_public_key: e.target.value})}
-                            className="w-full bg-white border border-gray-200 rounded-xl px-3.5 py-2 text-sm outline-none focus:border-red-400 transition" />
-                        </div>
-                        <div>
-                          <label className="text-xs text-gray-500 font-semibold mb-1 block">Mercado Pago Access Token (Token de Acceso)</label>
-                          <input type="password" placeholder="TEST-12345..."
-                            value={ajustes.mercado_pago_access_token}
-                            onChange={(e) => setAjustes({...ajustes, mercado_pago_access_token: e.target.value})}
-                            className="w-full bg-white border border-gray-200 rounded-xl px-3.5 py-2 text-sm outline-none focus:border-red-400 transition" />
-                        </div>
-                        <p className="text-[10px] text-gray-400 leading-normal">
-                          * Nota: Utiliza credenciales de producción para cobros reales o credenciales de prueba (`TEST-...`) para realizar compras de simulación.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  <button type="submit" disabled={guardandoAjustes}
-                    className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl transition shadow-md active:scale-95 disabled:opacity-60">
-                    {guardandoAjustes ? 'Guardando cambios...' : 'Guardar Ajustes de Configuración'}
-                  </button>
-                </form>
-              )}
-=======
           {vistaActiva === 'config' && (
             <div className="flex flex-col gap-6 max-w-2xl">
               <div>
@@ -1034,7 +725,6 @@ ALTER TABLE public.pedidos ADD COLUMN IF NOT EXISTS pago_estado text DEFAULT 'pe
                   <p className="text-xs text-yellow-600">Para que la configuracion funcione necesitas crear la tabla <strong>configuracion</strong> en Supabase con las columnas: id, nombre, telefono, direccion, horario, descripcion.</p>
                 </div>
               </div>
->>>>>>> feature/paneladmin
             </div>
           )}
 
