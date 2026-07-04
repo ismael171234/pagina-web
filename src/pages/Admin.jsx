@@ -39,7 +39,20 @@ function Admin() {
   const [usuarios, setUsuarios]   = useState([])
   const [resenas, setResenas]     = useState([])
   const [productos, setProductos] = useState([])
-  const [config, setConfig]       = useState({ nombre: 'La Esquina', telefono: '', direccion: '', horario: '', descripcion: '' })
+  const [config, setConfig]       = useState({
+    nombre: 'La Esquina',
+    telefono: '',
+    direccion: '',
+    horario: '',
+    descripcion: '',
+    delivery_costo: 5,
+    delivery_gratis_desde: 50,
+    delivery_coordinar: false,
+    mercado_pago_activo: false,
+    mercado_pago_public_key: '',
+    mercado_pago_access_token: ''
+  })
+  const [tablaExiste, setTablaExiste] = useState(true)
 
   const [vistaActiva, setVistaActiva]     = useState('dashboard')
   const [cargando, setCargando]           = useState(true)
@@ -93,8 +106,29 @@ function Admin() {
   const fetchResenas   = async () => { const { data } = await supabase.from('resenas').select('*'); if (data) setResenas(data) }
   const fetchProductos = async () => { const { data } = await supabase.from('productos').select('*').order('creado_en', { ascending: false }); if (data) setProductos(data) }
   const fetchConfig    = async () => {
-    const { data } = await supabase.from('configuracion').select('*').single()
-    if (data) setConfig(data)
+    try {
+      const { data, error } = await supabase.from('configuracion').select('*').maybeSingle()
+      if (error) {
+        if (error.code === '42P01' || error.message.includes('relation "public.configuracion" does not exist')) {
+          setTablaExiste(false)
+        }
+        throw error
+      }
+      if (data) {
+        setConfig({
+          ...data,
+          delivery_costo: data.delivery_costo !== undefined && data.delivery_costo !== null ? parseFloat(data.delivery_costo) : 5,
+          delivery_gratis_desde: data.delivery_gratis_desde !== undefined && data.delivery_gratis_desde !== null ? parseFloat(data.delivery_gratis_desde) : 50,
+          delivery_coordinar: !!data.delivery_coordinar,
+          mercado_pago_activo: !!data.mercado_pago_activo,
+          mercado_pago_public_key: data.mercado_pago_public_key || '',
+          mercado_pago_access_token: data.mercado_pago_access_token || ''
+        })
+      }
+      setTablaExiste(true)
+    } catch (err) {
+      console.error('Error fetching config:', err.message)
+    }
   }
 
   const cambiarEstado = async (id, estado) => {
@@ -131,15 +165,41 @@ function Admin() {
 
   const guardarConfig = async () => {
     setGuardandoConfig(true)
-    const { data } = await supabase.from('configuracion').select('id').single()
-    if (data) {
-      await supabase.from('configuracion').update(config).eq('id', data.id)
-    } else {
-      await supabase.from('configuracion').insert([config])
+    try {
+      const { data, error } = await supabase.from('configuracion').select('id').maybeSingle()
+      if (error) throw error
+
+      const payload = {
+        nombre: config.nombre || '',
+        telefono: config.telefono || '',
+        direccion: config.direccion || '',
+        horario: config.horario || '',
+        descripcion: config.descripcion || '',
+        delivery_costo: parseFloat(config.delivery_costo) || 0,
+        delivery_gratis_desde: parseFloat(config.delivery_gratis_desde) || 0,
+        delivery_coordinar: !!config.delivery_coordinar,
+        mercado_pago_activo: !!config.mercado_pago_activo,
+        mercado_pago_public_key: config.mercado_pago_public_key || '',
+        mercado_pago_access_token: config.mercado_pago_access_token || '',
+        actualizado_en: new Date().toISOString()
+      }
+
+      if (data) {
+        const { error: updateErr } = await supabase.from('configuracion').update(payload).eq('id', data.id)
+        if (updateErr) throw updateErr
+      } else {
+        const { error: insertErr } = await supabase.from('configuracion').insert([{ ...payload, id: 'la_esquina' }])
+        if (insertErr) throw insertErr
+      }
+      setConfigGuardada(true)
+      setTimeout(() => setConfigGuardada(false), 3000)
+      setTablaExiste(true)
+    } catch (err) {
+      console.error(err)
+      alert('Error al guardar configuracion: ' + (err.message || err))
+    } finally {
+      setGuardandoConfig(false)
     }
-    setGuardandoConfig(false)
-    setConfigGuardada(true)
-    setTimeout(() => setConfigGuardada(false), 3000)
   }
 
   const pedidosHoy = pedidos.filter(p => { const f = p.creado_en ? new Date(p.creado_en) : null; return f && f.toDateString() === new Date().toDateString() })
@@ -521,40 +581,65 @@ function Admin() {
               ) : pedidos.length === 0 ? (
                 <p className="text-center text-gray-400 py-10">No hay pedidos aun</p>
               ) : (
-                pedidos.map((pedido) => (
-                  <div key={pedido.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition">
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <p className="text-xs text-gray-400">#{pedido.id.slice(0, 8)}</p>
-                        <p className="text-sm font-bold text-gray-900">{pedido.usuarioEmail}</p>
-                        <p className="text-xs text-gray-400">{pedido.creado_en ? new Date(pedido.creado_en).toLocaleString('es-PE') : '—'}</p>
-                        {pedido.mesa && <p className="text-xs font-semibold text-blue-600 mt-0.5">{pedido.mesa}</p>}
-                      </div>
-                      <div className="text-right">
-                        <p className="text-red-600 font-bold text-lg">S/ {pedido.total?.toFixed(2)}</p>
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1 mt-1 justify-end ${estadoColor[pedido.estado]}`}>
-                          {estadoIcono[pedido.estado]} {pedido.estado}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="border-t border-gray-100 pt-3 mb-3">
-                      {pedido.productos?.map((prod, i) => (
-                        <div key={i} className="flex justify-between text-xs text-gray-500 py-0.5">
-                          <span>{prod.nombre} x{prod.cantidad} {prod.opcion ? `(${prod.opcion})` : ''}</span>
-                          <span>S/ {((prod.precio + (prod.extra || 0)) * prod.cantidad).toFixed(2)}</span>
+                pedidos.map((pedido) => {
+                  const tipoEntrega = pedido.tipo_entrega || pedido.productos?.find(p => p.id === '_metadata')?.tipo_entrega || 'recojo'
+                  const direccion = pedido.direccion_entrega || pedido.productos?.find(p => p.id === '_metadata')?.direccion || null
+                  const telefono = pedido.telefono_contacto || pedido.productos?.find(p => p.id === '_metadata')?.telefono || null
+                  const costoDelivery = pedido.costo_delivery !== undefined ? parseFloat(pedido.costo_delivery) : (pedido.productos?.find(p => p.id === '_metadata')?.costo_delivery || 0)
+                  const metodoPago = pedido.metodo_pago || pedido.productos?.find(p => p.id === '_metadata')?.metodo_pago || 'efectivo'
+                  const pagoEstado = pedido.pago_estado || pedido.productos?.find(p => p.id === '_metadata')?.pago_estado || 'pendiente'
+
+                  // Filtrar los productos para no listar el item especial de metadatos en la tabla visual
+                  const productosVisibles = pedido.productos?.filter(p => p.id !== '_metadata') || []
+
+                  return (
+                    <div key={pedido.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition">
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <p className="text-xs text-gray-400">#{pedido.id.slice(0, 8)}</p>
+                          <p className="text-sm font-bold text-gray-900">{pedido.usuario_email || pedido.usuarioEmail}</p>
+                          <p className="text-xs text-gray-400">{pedido.creado_en ? new Date(pedido.creado_en).toLocaleString('es-PE') : '—'}</p>
                         </div>
-                      ))}
+                        <div className="text-right">
+                          <p className="text-red-600 font-bold text-lg">S/ {pedido.total?.toFixed(2)}</p>
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1 mt-1 justify-end ${estadoColor[pedido.estado]}`}>
+                            {estadoIcono[pedido.estado]} {pedido.estado}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="border-t border-gray-100 pt-3">
+                        {productosVisibles.map((prod, i) => (
+                          <div key={i} className="flex justify-between text-xs text-gray-500 py-0.5">
+                            <span>{prod.nombre} x{prod.cantidad} {prod.opcion ? `(${prod.opcion})` : ''}</span>
+                            <span>S/ {((prod.precio + (prod.extra || 0)) * prod.cantidad).toFixed(2)}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Detalles de entrega y pago */}
+                      <div className="mt-2.5 pt-2.5 border-t border-dashed border-gray-200 text-xs text-gray-500 space-y-1 bg-gray-50/50 p-2 rounded-xl border border-gray-100">
+                        <p><span className="font-bold text-gray-700">Entrega:</span> <span className="capitalize font-semibold">{tipoEntrega}</span>{tipoEntrega === 'delivery' && ` (Envío: S/ ${costoDelivery.toFixed(2)})`}</p>
+                        {tipoEntrega === 'delivery' && direccion && <p><span className="font-bold text-gray-700">Dirección:</span> {direccion}</p>}
+                        {telefono && <p><span className="font-bold text-gray-700">Teléfono:</span> {telefono}</p>}
+                        <p>
+                          <span className="font-bold text-gray-700">Pago:</span> <span className="capitalize font-semibold">{metodoPago === 'efectivo' ? 'Efectivo / Yape' : 'Mercado Pago (Online)'}</span> 
+                          <span className={`ml-2 px-2 py-0.5 rounded-full font-bold text-[10px] ${pagoEstado === 'aprobado' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                            {pagoEstado === 'aprobado' ? 'Pagado' : 'Pendiente'}
+                          </span>
+                        </p>
+                      </div>
+
+                      <div className="flex gap-2 flex-wrap mt-3">
+                        {['pendiente', 'preparando', 'listo', 'entregado', 'cancelado'].map((estado) => (
+                          <button key={estado} onClick={() => cambiarEstado(pedido.id, estado)}
+                            className={`text-xs font-semibold px-3 py-1.5 rounded-full transition ${pedido.estado === estado ? 'bg-red-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
+                            {estado}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                    <div className="flex gap-2 flex-wrap">
-                      {['pendiente', 'preparando', 'listo', 'entregado', 'cancelado'].map((estado) => (
-                        <button key={estado} onClick={() => cambiarEstado(pedido.id, estado)}
-                          className={`text-xs font-semibold px-3 py-1.5 rounded-full transition ${pedido.estado === estado ? 'bg-red-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-                          {estado}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))
+                  )
+                })
               )}
             </div>
           )}
@@ -679,52 +764,158 @@ function Admin() {
           {vistaActiva === 'config' && (
             <div className="flex flex-col gap-6 max-w-2xl">
               <div>
-                <h2 className="text-lg font-bold text-gray-900">Configuracion del restaurante</h2>
-                <p className="text-xs text-gray-400 mt-0.5">Esta informacion aparece en el footer y chatbot</p>
+                <h2 className="text-lg font-bold text-gray-900">Configuración del restaurante</h2>
+                <p className="text-xs text-gray-400 mt-0.5">Controla la información de marca, tarifas de delivery y pasarela de pago</p>
               </div>
 
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col gap-4">
-                <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 block">Nombre del restaurante</label>
-                  <input value={config.nombre || ''} onChange={e => setConfig({ ...config, nombre: e.target.value })} className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-red-500 transition" placeholder="La Esquina" />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 block">Teléfono</label>
-                  <input value={config.telefono || ''} onChange={e => setConfig({ ...config, telefono: e.target.value })} className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-red-500 transition" placeholder="+51 913 532 103" />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 block">Dirección</label>
-                  <input value={config.direccion || ''} onChange={e => setConfig({ ...config, direccion: e.target.value })} className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-red-500 transition" placeholder="Av. Principal 123, Piura" />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 block">Horario de atención</label>
-                  <input value={config.horario || ''} onChange={e => setConfig({ ...config, horario: e.target.value })} className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-red-500 transition" placeholder="Lun-Dom: 12:00pm - 11:00pm" />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 block">Descripción del restaurante</label>
-                  <textarea value={config.descripcion || ''} onChange={e => setConfig({ ...config, descripcion: e.target.value })} rows={3} className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-red-500 transition resize-none" placeholder="El mejor sabor de la ciudad..." />
-                </div>
+              {!tablaExiste ? (
+                <div className="bg-red-50 border border-red-200 rounded-2xl p-6">
+                  <h3 className="text-sm font-bold text-red-800 mb-2 flex items-center gap-2">
+                    ⚠️ Tabla de configuración no inicializada en Supabase
+                  </h3>
+                  <p className="text-xs text-red-600 mb-4 leading-relaxed font-medium">
+                    Para poder guardar los datos generales, envío y pasarela de pago, debes crear e inicializar la tabla de configuración unificada en Supabase.
+                    Copia el siguiente script SQL, ve al apartado <b>SQL Editor</b> en tu consola de Supabase, pégalo y presiona el botón <b>Run</b>:
+                  </p>
+                  <pre className="bg-gray-900 text-green-400 p-4 rounded-xl text-[11px] overflow-x-auto mb-4 font-mono select-all">
+{`-- Crear tabla de configuración unificada y habilitar RLS
+CREATE TABLE IF NOT EXISTS public.configuracion (
+    id text PRIMARY KEY DEFAULT 'la_esquina',
+    nombre text,
+    telefono text,
+    direccion text,
+    horario text,
+    descripcion text,
+    delivery_costo numeric DEFAULT 5.0,
+    delivery_gratis_desde numeric DEFAULT 50.0,
+    delivery_coordinar boolean DEFAULT false,
+    mercado_pago_activo boolean DEFAULT false,
+    mercado_pago_public_key text,
+    mercado_pago_access_token text,
+    actualizado_en timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
+);
 
-                <button onClick={guardarConfig} disabled={guardandoConfig} className="flex items-center justify-center gap-2 bg-red-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-red-700 transition disabled:opacity-50 shadow-sm">
-                  {guardandoConfig ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <FiSave size={16} />}
-                  Guardar configuracion
-                </button>
+ALTER TABLE public.configuracion ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Lectura pública de config" ON public.configuracion;
+CREATE POLICY "Lectura pública de config" ON public.configuracion FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Escritura solo para admins" ON public.configuracion;
+CREATE POLICY "Escritura solo para admins" ON public.configuracion FOR ALL USING (
+    EXISTS (SELECT 1 FROM public.usuarios WHERE usuarios.id = auth.uid() AND usuarios.rol = 'admin')
+);
 
-                {configGuardada && (
-                  <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl text-sm font-semibold">
-                    <FiCheckCircle size={16} />
-                    Configuracion guardada correctamente
+-- Agregar columnas de soporte de envío y pago a pedidos
+ALTER TABLE public.pedidos ADD COLUMN IF NOT EXISTS tipo_entrega text DEFAULT 'recojo';
+ALTER TABLE public.pedidos ADD COLUMN IF NOT EXISTS direccion_entrega text;
+ALTER TABLE public.pedidos ADD COLUMN IF NOT EXISTS telefono_contacto text;
+ALTER TABLE public.pedidos ADD COLUMN IF NOT EXISTS metodo_pago text DEFAULT 'efectivo';
+ALTER TABLE public.pedidos ADD COLUMN IF NOT EXISTS costo_delivery numeric DEFAULT 0;
+ALTER TABLE public.pedidos ADD COLUMN IF NOT EXISTS pago_estado text DEFAULT 'pendiente';`}
+                  </pre>
+                  <button onClick={() => window.location.reload()}
+                    className="bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-5 py-2.5 rounded-xl transition shadow-md">
+                    Reintentar conexión
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-6">
+                  {/* General settings */}
+                  <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col gap-4">
+                    <h3 className="text-sm font-bold text-gray-900 border-b border-gray-100 pb-2">Información del Restaurante</h3>
+                    <div>
+                      <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 block">Nombre del restaurante</label>
+                      <input value={config.nombre || ''} onChange={e => setConfig({ ...config, nombre: e.target.value })} className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-red-500 transition" placeholder="La Esquina" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 block">Teléfono</label>
+                      <input value={config.telefono || ''} onChange={e => setConfig({ ...config, telefono: e.target.value })} className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-red-500 transition" placeholder="+51 913 532 103" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 block">Dirección</label>
+                      <input value={config.direccion || ''} onChange={e => setConfig({ ...config, direccion: e.target.value })} className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-red-500 transition" placeholder="Av. Principal 123, Piura" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 block">Horario de atención</label>
+                      <input value={config.horario || ''} onChange={e => setConfig({ ...config, horario: e.target.value })} className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-red-500 transition" placeholder="Lun-Dom: 12:00pm - 11:00pm" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 block">Descripción del restaurante</label>
+                      <textarea value={config.descripcion || ''} onChange={e => setConfig({ ...config, descripcion: e.target.value })} rows={2} className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-red-500 transition resize-none" placeholder="El mejor sabor de la ciudad..." />
+                    </div>
                   </div>
-                )}
-              </div>
 
-              <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 flex items-start gap-3">
-                <FiAlertCircle className="text-yellow-500 flex-shrink-0 mt-0.5" size={16} />
-                <div>
-                  <p className="text-xs font-bold text-yellow-700 mb-1">Nota importante</p>
-                  <p className="text-xs text-yellow-600">Para que la configuracion funcione necesitas crear la tabla <strong>configuracion</strong> en Supabase con las columnas: id, nombre, telefono, direccion, horario, descripcion.</p>
+                  {/* Delivery Settings */}
+                  <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col gap-4">
+                    <h3 className="text-sm font-bold text-gray-900 border-b border-gray-100 pb-2">Tarifas y Políticas de Envío</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 block">Costo de Envío Fijo (S/)</label>
+                        <input type="number" step="0.1" min="0" disabled={config.delivery_coordinar}
+                          value={config.delivery_costo}
+                          onChange={(e) => setConfig({...config, delivery_costo: parseFloat(e.target.value) || 0})}
+                          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-red-500 transition disabled:bg-gray-100" />
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 block">Delivery gratis a partir de (S/)</label>
+                        <input type="number" step="1" min="0"
+                          value={config.delivery_gratis_desde}
+                          onChange={(e) => setConfig({...config, delivery_gratis_desde: parseFloat(e.target.value) || 0})}
+                          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-red-500 transition" />
+                      </div>
+                    </div>
+                    <label className="flex items-center gap-2 mt-1 cursor-pointer">
+                      <input type="checkbox" checked={config.delivery_coordinar}
+                        onChange={(e) => setConfig({...config, delivery_coordinar: e.target.checked})}
+                        className="rounded text-red-600 focus:ring-red-500" />
+                      <span className="text-xs text-gray-600 font-medium">Coordinar costo de envío con el motorizado (precio variable)</span>
+                    </label>
+                  </div>
+
+                  {/* Mercado Pago Settings */}
+                  <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col gap-4">
+                    <h3 className="text-sm font-bold text-gray-900 border-b border-gray-100 pb-2">Pasarela de Pagos (Mercado Pago)</h3>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={config.mercado_pago_activo}
+                        onChange={(e) => setConfig({...config, mercado_pago_activo: e.target.checked})}
+                        className="rounded text-red-600 focus:ring-red-500" />
+                      <span className="text-xs text-gray-855 font-bold">Activar Mercado Pago para compras en línea</span>
+                    </label>
+
+                    {config.mercado_pago_activo && (
+                      <div className="flex flex-col gap-3 bg-gray-50 rounded-xl p-4 border border-gray-200">
+                        <div>
+                          <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1 block">Mercado Pago Public Key (Clave Pública)</label>
+                          <input type="text" placeholder="TEST-a1b2..."
+                            value={config.mercado_pago_public_key}
+                            onChange={(e) => setConfig({...config, mercado_pago_public_key: e.target.value})}
+                            className="w-full bg-white border border-gray-200 rounded-xl px-3.5 py-2 text-sm outline-none focus:border-red-500 transition" />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1 block">Mercado Pago Access Token (Token de Acceso)</label>
+                          <input type="password" placeholder="TEST-12345..."
+                            value={config.mercado_pago_access_token}
+                            onChange={(e) => setConfig({...config, mercado_pago_access_token: e.target.value})}
+                            className="w-full bg-white border border-gray-200 rounded-xl px-3.5 py-2 text-sm outline-none focus:border-red-500 transition" />
+                        </div>
+                        <p className="text-[10px] text-gray-400 leading-normal">
+                          * Nota: Utiliza llaves de prueba (`TEST-...`) para simular compras o llaves de producción para procesar cobros reales.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  <button onClick={guardarConfig} disabled={guardandoConfig} className="flex items-center justify-center gap-2 bg-red-600 text-white px-6 py-3.5 rounded-xl font-bold hover:bg-red-700 transition disabled:opacity-50 shadow-md">
+                    {guardandoConfig ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <FiSave size={16} />}
+                    Guardar Todas las Configuraciones
+                  </button>
+
+                  {configGuardada && (
+                    <div className="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl text-sm font-semibold">
+                      <FiCheckCircle size={16} />
+                      Configuraciones guardadas correctamente en Supabase
+                    </div>
+                  )}
                 </div>
-              </div>
+              )}
             </div>
           )}
 

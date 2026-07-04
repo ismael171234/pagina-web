@@ -53,12 +53,18 @@ export default function CartDrawer() {
     const fetchAjustes = async () => {
       try {
         const { data } = await supabase
-          .from('configuraciones')
+          .from('configuracion')
           .select('*')
-          .eq('clave', 'ajustes_generales')
           .maybeSingle()
-        if (data && data.valor) {
-          setAjustes(data.valor)
+        if (data) {
+          setAjustes({
+            delivery_gratis_desde: data.delivery_gratis_desde !== undefined && data.delivery_gratis_desde !== null ? parseFloat(data.delivery_gratis_desde) : 50,
+            delivery_costo: data.delivery_costo !== undefined && data.delivery_costo !== null ? parseFloat(data.delivery_costo) : 5,
+            delivery_coordinar: !!data.delivery_coordinar,
+            mercado_pago_public_key: data.mercado_pago_public_key || '',
+            mercado_pago_access_token: data.mercado_pago_access_token || '',
+            mercado_pago_activo: !!data.mercado_pago_activo
+          })
         }
       } catch (err) {
         console.error('Error fetching settings in CartDrawer:', err)
