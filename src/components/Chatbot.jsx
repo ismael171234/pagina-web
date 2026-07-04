@@ -9,6 +9,74 @@ const CHIPS = [
   { label: '💳 Medios de pago', texto: '¿Qué formas de pago aceptan?' }
 ]
 
+const obtenerRespuestaLocal = (mensaje, config, productosList) => {
+  const msgLower = mensaje.toLowerCase()
+
+  // 1. ¿Cómo ordenar / pedir?
+  if (msgLower.includes('cómo ordenar') || msgLower.includes('como ordenar') || msgLower.includes('cómo pedir') || msgLower.includes('como pedir') || msgLower.includes('nuevo') || msgLower.includes('ayuda') || msgLower.includes('paso a paso') || msgLower.includes('hacer un pedido') || msgLower.includes('hacer pedido')) {
+    const costo = config.delivery_coordinar ? 'coordinar costo variable con el motorizado.' : `S/ ${(config.delivery_costo || 5).toFixed(2)}.`;
+    const gratis = config.delivery_gratis_desde ? `¡Delivery gratis por compras mayores a S/ ${config.delivery_gratis_desde}! 🛵` : '';
+    return `¡Es súper fácil ordenar en **${config.nombre || 'La Esquina'}**! Sigue estos sencillos pasos:\n\n` +
+      `1️⃣ Ve a la pestaña **Menú** 📋 o selecciona platos desde la página de inicio.\n` +
+      `2️⃣ Elige las opciones del plato (opción, complemento si aplica) y haz clic en **Agregar al carrito** 🛒.\n` +
+      `3️⃣ Abre tu carrito (botón en la esquina inferior derecha) y haz clic en **Confirmar pedido**.\n` +
+      `4️⃣ Ingresa tu Dirección y Teléfono, elige si es para **Delivery** o **Recojo en Local**.\n` +
+      `5️⃣ Elige tu método de pago: **Efectivo / Yape** (al recibir/recoger) o **Pago online** (tarjetas de crédito/débito vía Mercado Pago).\n\n` +
+      `¡Listo! Tu pedido llegará en unos minutos. 🛵💨`;
+  }
+
+  // 2. Horarios y Dirección
+  if (msgLower.includes('horario') || msgLower.includes('dirección') || msgLower.includes('direccion') || msgLower.includes('ubicación') || msgLower.includes('donde estan') || msgLower.includes('dónde están') || msgLower.includes('dónde queda') || msgLower.includes('donde queda') || msgLower.includes('lugar')) {
+    return `📍 **Ubicación**: ${config.direccion || 'Av. Principal 123, Piura'}\n` +
+      `🕒 **Horario de atención**: ${config.horario || 'Lunes a Domingo: 12:00 pm - 11:00 pm'}\n\n` +
+      `¡Te esperamos con el mejor sabor! 🤤`;
+  }
+
+  // 3. Costo de envío / Delivery
+  if (msgLower.includes('delivery') || msgLower.includes('envio') || msgLower.includes('envío') || msgLower.includes('costo') || msgLower.includes('cuanto cuesta') || msgLower.includes('cuánto cuesta')) {
+    const costo = config.delivery_coordinar ? 'coordinar costo variable con el motorizado al recibir.' : `S/ ${(config.delivery_costo || 5).toFixed(2)}.`;
+    const gratis = config.delivery_gratis_desde ? `¡Además, tu envío es **GRATIS** en compras mayores a S/ ${config.delivery_gratis_desde}! 🛵` : '';
+    return `🛵 **Políticas de Delivery**:\n\n` +
+      `- Contamos con **Recojo en Local** (Gratis) y **Envío a Domicilio**.\n` +
+      `- Tarifa de envío: ${costo}\n` +
+      `- ${gratis}`;
+  }
+
+  // 4. Medios de pago
+  if (msgLower.includes('pago') || msgLower.includes('pagar') || msgLower.includes('tarjeta') || msgLower.includes('yape') || msgLower.includes('efectivo') || msgLower.includes('mercado pago')) {
+    return `💳 **Métodos de Pago**:\n\n` +
+      `1️⃣ **Efectivo / Yape / Plin**: Pagas de forma directa contra entrega al recibir tu delivery o recoger en local.\n` +
+      `2️⃣ **Pago Online (Mercado Pago)**: Aceptamos tarjetas de débito/crédito (Visa, Mastercard, etc.) de forma segura directamente al checkout.\n\n` +
+      `*(Nota: Mercado Pago se habilitará si el administrador ha activado el cobro online en los ajustes).*`;
+  }
+
+  // 5. Menú / Carta / Qué platos tienen
+  if (msgLower.includes('menú') || msgLower.includes('menu') || msgLower.includes('carta') || msgLower.includes('platos') || msgLower.includes('comer') || msgLower.includes('hamburguesa') || msgLower.includes('alitas') || msgLower.includes('pollo')) {
+    const platos = productosList.length > 0 
+      ? productosList.slice(0, 5).map(p => `- ${p.nombre} (${p.categoria}): S/ ${parseFloat(p.precio).toFixed(2)}`).join('\n')
+      : `- Hamburguesa Clásica: S/ 18.90\n- Combo Alitas de Pollo: S/ 32.90\n- Combo Anticuchos: S/ 35.90\n- Torta de Chocolate: S/ 10.90`;
+    return `📋 **Nuestra Carta (Platos Destacados)**:\n\n${platos}\n\n...y mucho más en nuestra sección de **Menú**. ¡Échale un vistazo! 😋`;
+  }
+
+  // 6. Teléfono / Contacto
+  if (msgLower.includes('telefono') || msgLower.includes('teléfono') || msgLower.includes('contacto') || msgLower.includes('whatsapp') || msgLower.includes('llamar')) {
+    return `📞 Puedes comunicarte con nosotros llamando al: **${config.telefono || '+51 913 532 103'}** o escribiéndonos directamente al WhatsApp haciendo clic en el ícono verde abajo a la derecha. 💬`;
+  }
+
+  // 7. Saludos
+  if (msgLower.includes('hola') || msgLower.includes('buenas') || msgLower.includes('saludos') || msgLower.includes('que tal') || msgLower.includes('qué tal')) {
+    return `¡Hola! Soy Esquinita, el asistente virtual de **${config.nombre || 'La Esquina'}**. ¿En qué te puedo ayudar hoy? 😊\n\n` +
+      `Pregúntame sobre:\n` +
+      `- 🚀 ¿Cómo ordenar?\n` +
+      `- 🕒 Horario y Dirección\n` +
+      `- 🛵 Costo de envío\n` +
+      `- 💳 Medios de pago`;
+  }
+
+  // Default fallback response
+  return `Hola, soy Esquinita. No logré comprender tu pregunta exacta. Puedes utilizar los botones rápidos aquí abajo para saber cómo hacer un pedido, ver horarios/dirección, políticas de envío o formas de pago. ¡Estoy para ayudarte! 😊`;
+}
+
 const getSystemPrompt = (config, productosList) => {
   const infoRestaurante = `
 Restaurante: ${config.nombre || 'La Esquina'}
@@ -109,6 +177,16 @@ function Chatbot() {
     setCargando(true)
 
     try {
+      // 1. Si no hay API Key configurada, responder inmediatamente con la lógica local
+      if (!import.meta.env.VITE_ANTHROPIC_API_KEY) {
+        setTimeout(() => {
+          const respuesta = obtenerRespuestaLocal(textoAEnviar, ajustes, productos)
+          setMensajes((prev) => [...prev, { rol: 'assistant', texto: respuesta }])
+          setCargando(false)
+        }, 500)
+        return
+      }
+
       const historial = [...mensajes, nuevoMensaje].map((m) => ({
         role: m.rol,
         content: m.texto,
@@ -131,10 +209,18 @@ function Chatbot() {
       })
 
       const data = await response.json()
-      const respuesta = data.content?.[0]?.text || 'Lo siento, no pude responder.'
-      setMensajes((prev) => [...prev, { rol: 'assistant', texto: respuesta }])
+      
+      if (response.ok && data.content?.[0]?.text) {
+        setMensajes((prev) => [...prev, { rol: 'assistant', texto: data.content[0].text }])
+      } else {
+        console.warn('Anthropic API error, using local fallback:', data)
+        const respuesta = obtenerRespuestaLocal(textoAEnviar, ajustes, productos)
+        setMensajes((prev) => [...prev, { rol: 'assistant', texto: respuesta }])
+      }
     } catch (err) {
-      setMensajes((prev) => [...prev, { rol: 'assistant', texto: 'Lo siento, hubo un error. Intenta de nuevo.' }])
+      console.warn('Network error, using local fallback:', err)
+      const respuesta = obtenerRespuestaLocal(textoAEnviar, ajustes, productos)
+      setMensajes((prev) => [...prev, { rol: 'assistant', texto: respuesta }])
     } finally {
       setCargando(false)
     }
