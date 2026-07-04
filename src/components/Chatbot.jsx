@@ -1,35 +1,111 @@
 import { useState, useRef, useEffect } from 'react'
 import { FiMessageSquare, FiX, FiSend } from 'react-icons/fi'
+import { supabase } from '../supabase/supabaseClient'
 
-const SYSTEM_PROMPT = `Eres el asistente virtual del Restaurante La Esquina, un restaurante peruano especializado en hamburguesas, combos, bebidas y postres. Tu nombre es "Esquinita".
+const CHIPS = [
+  { label: '🚀 ¿Cómo ordenar?', texto: 'Hola, soy nuevo. ¿Cómo puedo hacer un pedido?' },
+  { label: '🕒 Horario y Dirección', texto: '¿Cuál es su dirección y horario de atención?' },
+  { label: '🛵 Costo de envío', texto: '¿Cuál es el costo del delivery?' },
+  { label: '💳 Medios de pago', texto: '¿Qué formas de pago aceptan?' }
+]
 
-Menú disponible:
-HAMBURGUESAS: Hamburguesa Clásica S/18.90, Hamburguesa Clásica 2 S/18.90, Hamburguesa Royal S/22.90, Hamburguesa a la Peruana S/24.90
-COMBOS: Combo Anticuchos S/35.90, Combo Alitas de Pollo S/32.90, Combo Nuggets de Pollo S/28.90, Combo Pollo BBQ S/34.90
-BEBIDAS: Coca Cola S/5.90, Fanta S/5.90, Inca Kola S/5.90, Sprint S/4.90, Maracuyá S/6.50, Chicha Morada S/6.50
-POSTRES: Arroz con Leche S/8.90, Brownie con Helado S/12.90, Cheesecake de Fresa S/11.90, Torta de Chocolate S/10.90
+const getSystemPrompt = (config, productosList) => {
+  const infoRestaurante = `
+Restaurante: ${config.nombre || 'La Esquina'}
+Dirección: ${config.direccion || 'No especificada'}
+Teléfono: ${config.telefono || 'No especificado'}
+Horario: ${config.horario || 'No especificado'}
+Descripción: ${config.descripcion || 'Especialidades peruanas'}
+`;
 
-Responde siempre en español, de forma amable, corta y profesional. Si el cliente pregunta por precios, muéstralos claramente. Si quiere hacer un pedido, dile que vaya al menú de la página. No inventes productos que no están en el menú.`
+  const costoFijo = config.delivery_coordinar ? 'Costo variable a registrar con el motorizado' : `S/ ${(config.delivery_costo || 5).toFixed(2)}`;
+  const envioGratis = config.delivery_gratis_desde ? `Envío gratuito en compras mayores a S/ ${(config.delivery_gratis_desde).toFixed(2)}` : 'No aplica envío gratuito';
+
+  const infoDelivery = `
+Políticas de Delivery:
+- Tipo de entrega: Recojo en local (Gratis) o Envío a domicilio.
+- Tarifa: ${costoFijo}.
+- Promoción: ${envioGratis}.
+`;
+
+  const menu = productosList.length > 0
+    ? productosList.map(p => `- ${p.nombre} (${p.categoria}): S/ ${parseFloat(p.precio).toFixed(2)}${p.tag ? ` [Tag: ${p.tag}]` : ''}`).join('\n')
+    : `HAMBURGUESAS: Hamburguesa Clásica S/18.90, Hamburguesa Clásica 2 S/18.90, Hamburguesa Royal S/22.90, Hamburguesa a la Peruana S/24.90\nCOMBOS: Combo Anticuchos S/35.90, Combo Alitas de Pollo S/32.90, Combo Nuggets de Pollo S/28.90, Combo Pollo BBQ S/34.90\nBEBIDAS: Coca Cola S/5.90, Fanta S/5.90, Inca Kola S/5.90, Sprint S/4.90, Maracuyá S/6.50, Chicha Morada S/6.50\nPOSTRES: Arroz con Leche S/8.90, Brownie con Helado S/12.90, Cheesecake de Fresa S/11.90, Torta de Chocolate S/10.90`;
+
+  return `Eres "Esquinita", el asistente virtual del Restaurante "${config.nombre || 'La Esquina'}". Responde de forma amable, cercana, corta y profesional en español.
+
+${infoRestaurante}
+
+${infoDelivery}
+
+MENÚ DE PLATOS DISPONIBLES:
+${menu}
+
+DIRECTIVAS CLAVE PARA AYUDAR A NUEVOS USUARIOS:
+1. Si son nuevos y quieren saber cómo ordenar, explícales con un tono muy amable los siguientes pasos:
+   - Paso A: Explora el menú en la sección "Menú" o selecciona platos desde la página de inicio.
+   - Paso B: Agrega tus platos preferidos al carrito.
+   - Paso C: Abre el carrito en la esquina inferior derecha, dale a "Confirmar pedido", completa tus datos (Dirección/Teléfono) y selecciona si deseas "Recojo en local" o "Delivery".
+   - Paso D: Selecciona si pagarás en Efectivo/Yape al recibir, o Pago online seguro con Mercado Pago.
+2. Responde preguntas frecuentes usando la información del restaurante arriba (Dirección, Teléfono, Horario, Políticas de Delivery).
+3. No inventes productos. Si no están en la lista anterior, di amablemente que no contamos con ellos.
+4. Mantén las respuestas breves, con buen formato y emojis amigables.`;
+}
 
 function Chatbot() {
   const [abierto, setAbierto] = useState(false)
   const [mensajes, setMensajes] = useState([
-    { rol: 'assistant', texto: '¡Hola! Soy Esquinita, el asistente de La Esquina. ¿En qué te puedo ayudar?' }
+    { rol: 'assistant', texto: '¡Hola! Soy Esquinita, tu asistente de La Esquina. ¿Listo para probar lo mejor de nuestro menú? Si eres nuevo o tienes dudas de cómo pedir, ¡dímelo para guiarte paso a paso!' }
   ])
   const [input, setInput] = useState('')
   const [cargando, setCargando] = useState(false)
+  const [ajustes, setAjustes] = useState({
+    nombre: 'La Esquina',
+    telefono: '',
+    direccion: '',
+    horario: '',
+    descripcion: '',
+    delivery_costo: 5,
+    delivery_gratis_desde: 50,
+    delivery_coordinar: false,
+    mercado_pago_activo: false
+  })
+  const [productos, setProductos] = useState([])
+
   const messagesEndRef = useRef(null)
+
+  // Cargar contexto dinámico (configuración y productos disponibles)
+  useEffect(() => {
+    const loadBotContext = async () => {
+      try {
+        const { data: configData } = await supabase.from('configuracion').select('*').maybeSingle()
+        if (configData) {
+          setAjustes(configData)
+        }
+        const { data: prodData } = await supabase.from('productos').select('*').eq('disponible', true)
+        if (prodData) {
+          setProductos(prodData)
+        }
+      } catch (err) {
+        console.error('Error al cargar contexto para el chatbot:', err)
+      }
+    }
+    loadBotContext()
+  }, [])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [mensajes])
 
-  const enviarMensaje = async () => {
-    if (!input.trim() || cargando) return
+  const enviarMensaje = async (textoPersonalizado = null) => {
+    const textoAEnviar = typeof textoPersonalizado === 'string' ? textoPersonalizado : input
+    if (!textoAEnviar.trim() || cargando) return
 
-    const nuevoMensaje = { rol: 'user', texto: input }
+    const nuevoMensaje = { rol: 'user', texto: textoAEnviar }
     setMensajes((prev) => [...prev, nuevoMensaje])
-    setInput('')
+    if (!textoPersonalizado || typeof textoPersonalizado !== 'string') {
+      setInput('')
+    }
     setCargando(true)
 
     try {
@@ -49,7 +125,7 @@ function Chatbot() {
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
           max_tokens: 500,
-          system: SYSTEM_PROMPT,
+          system: getSystemPrompt(ajustes, productos),
           messages: historial,
         }),
       })
@@ -88,8 +164,8 @@ function Chatbot() {
               <FiMessageSquare className="text-white text-sm" />
             </div>
             <div>
-              <p className="text-white font-bold text-sm">Esquinita</p>
-              <p className="text-red-200 text-xs">Asistente de La Esquina</p>
+              <p className="text-white font-bold text-sm">{ajustes.nombre || 'La Esquina'}</p>
+              <p className="text-red-200 text-xs">Asistente Virtual</p>
             </div>
             <div className="ml-auto flex items-center gap-1">
               <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
@@ -123,6 +199,20 @@ function Chatbot() {
             <div ref={messagesEndRef} />
           </div>
 
+          {/* Quick FAQ Chips */}
+          <div className="px-3 pt-2 pb-1.5 flex gap-1.5 overflow-x-auto scrollbar-none border-t border-gray-100 bg-gray-50/50">
+            {CHIPS.map((chip, idx) => (
+              <button
+                key={idx}
+                onClick={() => enviarMensaje(chip.texto)}
+                disabled={cargando}
+                className="text-[10px] bg-white hover:bg-red-50 text-gray-600 hover:text-red-600 border border-gray-200 hover:border-red-200 px-2.5 py-1 rounded-full whitespace-nowrap transition flex-shrink-0 font-medium active:scale-95 shadow-sm disabled:opacity-50"
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
+
           <div className="border-t border-gray-100 px-3 py-3 flex gap-2">
             <input
               type="text"
@@ -133,7 +223,7 @@ function Chatbot() {
               className="flex-1 bg-gray-50 rounded-full px-4 py-2 text-sm outline-none border border-gray-200 focus:border-red-400 transition"
             />
             <button
-              onClick={enviarMensaje}
+              onClick={() => enviarMensaje()}
               disabled={cargando || !input.trim()}
               className="bg-red-600 text-white w-9 h-9 rounded-full flex items-center justify-center hover:bg-red-700 transition disabled:opacity-50"
             >
