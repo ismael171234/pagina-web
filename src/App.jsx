@@ -4,6 +4,7 @@ import Menu from './pages/Menu'
 import Orders from './pages/Orders'
 import Login from './pages/Login'
 import Admin from './pages/Admin'
+import ResetPassword from './pages/ResetPassword'
 import NotFound from './pages/NotFound'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
@@ -13,7 +14,7 @@ import CartDrawer from './components/CartDrawer'
 
 function Layout() {
   const location = useLocation()
-  const hideNav = ['/login', '/admin'].includes(location.pathname)
+  const hideNav = ['/login', '/admin', '/reset-password'].includes(location.pathname)
 
   return (
     <>
@@ -25,6 +26,7 @@ function Layout() {
         <Route path="/orders"      element={<Orders />} />
         <Route path="/login"       element={<Login />} />
         <Route path="/admin"       element={<Admin />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="*"            element={<NotFound />} />
       </Routes>
       {!hideNav && <Footer />}
