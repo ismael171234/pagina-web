@@ -98,6 +98,11 @@ export function AuthProvider({ children }) {
     redirectTo: `${window.location.origin}/reset-password`
   })
   const actualizarPassword = (newPassword) => supabase.auth.updateUser({ password: newPassword })
+  const recargarDatosUsuario = async () => {
+    if (usuario) {
+      await fetchDatosUsuario(usuario)
+    }
+  }
 
   const value = { 
     usuario, 
@@ -108,6 +113,7 @@ export function AuthProvider({ children }) {
     cerrarSesion, 
     recuperarPassword, 
     actualizarPassword, 
+    recargarDatosUsuario,
     cargando 
   }
 

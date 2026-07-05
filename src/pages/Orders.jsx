@@ -202,7 +202,7 @@ function ResenaGuardada({ resena }) {
 // ── Componente principal ───────────────────────────────────
 function Orders() {
   const { carrito, actualizarCantidad, eliminarProducto, vaciarCarrito, total } = useCart()
-  const { usuario, datosUsuario, cerrarSesion } = useAuth()
+  const { usuario, datosUsuario, cerrarSesion, recargarDatosUsuario, actualizarPassword } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -282,6 +282,16 @@ function Orders() {
   const [nombreEdit, setNombreEdit] = useState('')
   const [guardando, setGuardando] = useState(false)
   const [guardadoOk, setGuardadoOk] = useState(false)
+
+  // Cambiar contraseña
+  const [editandoPassword, setEditandoPassword] = useState(false)
+  const [nuevaPassword, setNuevaPassword] = useState('')
+  const [confirmarNuevaPassword, setConfirmarNuevaPassword] = useState('')
+  const [cargandoPassword, setCargandoPassword] = useState(false)
+  const [errorPassword, setErrorPassword] = useState('')
+  const [okPassword, setOkPassword] = useState(false)
+  const [showNuevaPassword, setShowNuevaPassword] = useState(false)
+  const [showConfirmNuevaPassword, setShowConfirmNuevaPassword] = useState(false)
 
   // ── Listener pedidos ──
   useEffect(() => {
@@ -471,6 +481,7 @@ function Orders() {
         .update({ nombre: nombreEdit.trim() })
         .eq('id', usuario.id)
       if (error) throw error
+      await recargarDatosUsuario()
       setGuardadoOk(true)
       setEditando(false)
       setTimeout(() => setGuardadoOk(false), 2500)
@@ -479,6 +490,47 @@ function Orders() {
       alert('Error al guardar.')
     }
     setGuardando(false)
+  }
+
+  const validacionesPassword = {
+    longitud: nuevaPassword.length >= 8,
+    mayuscula: /[A-Z]/.test(nuevaPassword),
+    numero: /[0-9]/.test(nuevaPassword),
+    especial: /[!@#$%^&*(),.?":{}|<>]/.test(nuevaPassword),
+  }
+
+  const passwordSegura = Object.values(validacionesPassword).every(Boolean)
+
+  const cambiarPassword = async (e) => {
+    e.preventDefault()
+    if (!nuevaPassword || !confirmarNuevaPassword) {
+      setErrorPassword('Por favor completa todos los campos')
+      return
+    }
+    if (nuevaPassword !== confirmarNuevaPassword) {
+      setErrorPassword('Las contraseñas no coinciden')
+      return
+    }
+    if (!passwordSegura) {
+      setErrorPassword('La contraseña no cumple los requisitos de seguridad')
+      return
+    }
+    setCargandoPassword(true)
+    setErrorPassword('')
+    try {
+      const { error } = await actualizarPassword(nuevaPassword)
+      if (error) throw error
+      setOkPassword(true)
+      setNuevaPassword('')
+      setConfirmarNuevaPassword('')
+      setEditandoPassword(false)
+      setTimeout(() => setOkPassword(false), 3000)
+    } catch (err) {
+      console.error(err)
+      setErrorPassword(err.message || 'Error al cambiar la contraseña')
+    } finally {
+      setCargandoPassword(false)
+    }
   }
 
   const handleCerrarSesion = async () => { await cerrarSesion(); navigate('/') }
@@ -905,6 +957,135 @@ function Orders() {
                       <FiShield className="text-gray-400 flex-shrink-0" size={14} />
                       <p className="text-sm font-semibold text-white">{rolLabel[datosUsuario?.rol] || 'Cliente'}</p>
                     </div>
+                  </div>
+                </div>
+
+                {/* ══ SEGURIDAD ══ */}
+                <div className="bg-[#111] rounded-2xl border border-white/5 overflow-hidden">
+                  <div className="px-5 py-4 border-b border-white/5 flex items-center justify-between">
+                    <p className="font-bold text-white text-sm">Seguridad de la cuenta</p>
+                    {okPassword && (
+                      <span className="text-xs text-green-400 font-semibold flex items-center gap-1">
+                        <FiCheck size={12} /> Contraseña actualizada
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div className="px-5 py-4">
+                    {!editandoPassword ? (
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-white">Contraseña</p>
+                          <p className="text-xs text-gray-500 mt-0.5">Actualiza tu contraseña de acceso</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditandoPassword(true)
+                            setErrorPassword('')
+                            setNuevaPassword('')
+                            setConfirmarNuevaPassword('')
+                          }}
+                          className="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 font-semibold transition"
+                        >
+                          Cambiar contraseña
+                        </button>
+                      </div>
+                    ) : (
+                      <form onSubmit={cambiarPassword} className="flex flex-col gap-3.5">
+                        <p className="text-xs font-bold text-red-400">Actualizar contraseña</p>
+                        
+                        {errorPassword && (
+                          <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs px-3.5 py-2.5 rounded-xl font-medium">
+                            {errorPassword}
+                          </div>
+                        )}
+
+                        {/* Nueva Contraseña */}
+                        <div className="relative">
+                          <input
+                            type={showNuevaPassword ? 'text' : 'password'}
+                            placeholder="Nueva contraseña"
+                            value={nuevaPassword}
+                            onChange={(e) => setNuevaPassword(e.target.value)}
+                            className="w-full bg-[#1a1a1a] border border-white/10 rounded-xl px-3.5 py-2.5 pl-10 pr-10 text-sm text-white outline-none focus:border-red-500 transition"
+                            required
+                          />
+                          <span className="absolute left-3 top-3.5 text-gray-500">
+                            <FiLock size={14} />
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setShowNuevaPassword(!showNuevaPassword)}
+                            className="absolute right-3 top-3.5 text-gray-500 hover:text-gray-300"
+                          >
+                            {showNuevaPassword ? <FiEyeOff size={14} /> : <FiEye size={14} />}
+                          </button>
+                        </div>
+
+                        {/* Confirmar Nueva Contraseña */}
+                        <div className="relative">
+                          <input
+                            type={showConfirmNuevaPassword ? 'text' : 'password'}
+                            placeholder="Confirmar nueva contraseña"
+                            value={confirmarNuevaPassword}
+                            onChange={(e) => setConfirmarNuevaPassword(e.target.value)}
+                            className="w-full bg-[#1a1a1a] border border-white/10 rounded-xl px-3.5 py-2.5 pl-10 pr-10 text-sm text-white outline-none focus:border-red-500 transition"
+                            required
+                          />
+                          <span className="absolute left-3 top-3.5 text-gray-500">
+                            <FiLock size={14} />
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmNuevaPassword(!showConfirmNuevaPassword)}
+                            className="absolute right-3 top-3.5 text-gray-500 hover:text-gray-300"
+                          >
+                            {showConfirmNuevaPassword ? <FiEyeOff size={14} /> : <FiEye size={14} />}
+                          </button>
+                        </div>
+
+                        {/* Validaciones de contraseña */}
+                        {nuevaPassword.length > 0 && (
+                          <div className="bg-[#1a1a1a] rounded-xl p-3 border border-white/5 flex flex-col gap-1.5">
+                            <p className="text-[11px] font-bold text-gray-400">Requisitos de seguridad:</p>
+                            {[
+                              { key: 'longitud', texto: 'Mínimo 8 caracteres' },
+                              { key: 'mayuscula', texto: 'Al menos una mayúscula' },
+                              { key: 'numero', texto: 'Al menos un número' },
+                              { key: 'especial', texto: 'Al menos un carácter especial (!@#$...)' },
+                            ].map((req) => (
+                              <div key={req.key} className="flex items-center gap-2">
+                                {validacionesPassword[req.key]
+                                  ? <FiCheck className="text-green-500 text-xs flex-shrink-0" />
+                                  : <FiX className="text-red-400 text-xs flex-shrink-0" />
+                                }
+                                <span className={`text-xs ${validacionesPassword[req.key] ? 'text-green-500' : 'text-gray-500'}`}>
+                                  {req.texto}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        <div className="flex gap-2">
+                          <button
+                            type="submit"
+                            disabled={cargandoPassword}
+                            className="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-2.5 rounded-xl text-xs transition active:scale-95 disabled:opacity-50"
+                          >
+                            {cargandoPassword ? 'Guardando...' : 'Guardar contraseña'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditandoPassword(false)}
+                            className="bg-white/5 hover:bg-white/10 text-gray-300 px-4 py-2.5 rounded-xl text-xs transition font-semibold"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </form>
+                    )}
                   </div>
                 </div>
 
