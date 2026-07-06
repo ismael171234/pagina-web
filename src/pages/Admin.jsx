@@ -64,6 +64,7 @@ function Admin() {
   const [productoEditando, setProductoEditando] = useState(null)
   const [form, setForm]                   = useState(FORM_VACIO)
   const [guardando, setGuardando]         = useState(false)
+  const [subiendoImagen, setSubiendoImagen] = useState(false)
   const [filtroCategoria, setFiltroCategoria] = useState('Todas')
   const [guardandoConfig, setGuardandoConfig] = useState(false)
   const [configGuardada, setConfigGuardada]   = useState(false)
@@ -296,8 +297,54 @@ function Admin() {
                 <textarea value={form.descripcion} onChange={e => setForm({ ...form, descripcion: e.target.value })} placeholder="Descripción del producto..." rows={2} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-red-500 transition resize-none" />
               </div>
               <div>
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1 block">URL de imagen</label>
-                <input value={form.imagen_url} onChange={e => setForm({ ...form, imagen_url: e.target.value })} placeholder="https://..." className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-red-500 transition" />
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1 block">Imagen del producto</label>
+                <div className="border-2 border-dashed border-gray-200 rounded-xl p-4 text-center hover:border-red-400 transition cursor-pointer relative"
+                  onClick={() => document.getElementById('input-imagen').click()}>
+                  {form.imagen_url ? (
+                    <div className="relative">
+                      <img src={form.imagen_url} alt="preview" className="w-full h-32 object-cover rounded-lg" />
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setForm({ ...form, imagen_url: '' }) }}
+                        className="absolute top-2 right-2 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold hover:bg-red-700 transition"
+                      >×</button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-2 py-2">
+                      {subiendoImagen ? (
+                        <div className="w-6 h-6 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <>
+                          <FiPackage className="text-gray-300 text-3xl" />
+                          <p className="text-xs text-gray-400 font-medium">Haz clic para subir imagen</p>
+                          <p className="text-xs text-gray-300">JPG, PNG, WEBP hasta 5MB</p>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  <input
+                    id="input-imagen"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files[0]
+                      if (!file) return
+                      setSubiendoImagen(true)
+                      try {
+                        const ext = file.name.split('.').pop()
+                        const nombre = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
+                        const { error } = await supabase.storage.from('Productos').upload(nombre, file, { upsert: true })
+                        if (error) throw error
+                        const { data: urlData } = supabase.storage.from('Productos').getPublicUrl(nombre)
+                        setForm({ ...form, imagen_url: urlData.publicUrl })
+                      } catch (err) {
+                        alert('Error al subir imagen: ' + err.message)
+                      } finally {
+                        setSubiendoImagen(false)
+                      }
+                    }}
+                  />
+                </div>
               </div>
               <div className="flex items-center gap-3">
                 <button onClick={() => setForm({ ...form, disponible: !form.disponible })} className={`text-2xl transition ${form.disponible ? 'text-green-500' : 'text-gray-300'}`}>

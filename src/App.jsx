@@ -4,12 +4,18 @@ import Menu from './pages/Menu'
 import Orders from './pages/Orders'
 import Login from './pages/Login'
 import Admin from './pages/Admin'
+import Historia from './pages/Historia'
+import Contactanos from './pages/Contactanos'
 import NotFound from './pages/NotFound'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
 import Chatbot from './components/Chatbot'
 import WhatsAppButton from './components/WhatsAppButton'
 import CartDrawer from './components/CartDrawer'
+import TrabajaConNosotros from './pages/TrabajaConNosotros'
+
+
+
 
 function Layout() {
   const location = useLocation()
@@ -20,12 +26,15 @@ function Layout() {
       {!hideNav && <Navbar />}
       <CartDrawer />
       <Routes>
-        <Route path="/"            element={<Home />} />
-        <Route path="/menu"        element={<Menu />} />
-        <Route path="/orders"      element={<Orders />} />
-        <Route path="/login"       element={<Login />} />
-        <Route path="/admin"       element={<Admin />} />
-        <Route path="*"            element={<NotFound />} />
+        <Route path="/"              element={<Home />} />
+        <Route path="/menu"          element={<Menu />} />
+        <Route path="/orders"        element={<Orders />} />
+        <Route path="/login"         element={<Login />} />
+        <Route path="/admin"         element={<Admin />} />
+        <Route path="/historia"      element={<Historia />} />
+        <Route path="/contactanos"   element={<Contactanos />} />
+        <Route path="*"              element={<NotFound />} />
+        <Route path="/trabaja-con-nosotros" element={<TrabajaConNosotros />} />
       </Routes>
       {!hideNav && <Footer />}
       {!hideNav && <Chatbot />}
