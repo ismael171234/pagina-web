@@ -182,3 +182,30 @@
     border-right-color: var(--border);
   }
 }
+
+.input-dark {
+  width: 100%;
+  background-color: #0a0a0a;
+  border: 1px solid #2a2a2a;
+  border-radius: 0.65rem;
+  padding: 0.85rem 1rem;
+  color: white;
+  font-family: 'Montserrat', sans-serif;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.input-dark::placeholder {
+  color: #6b7280;
+}
+
+.input-dark:focus {
+  outline: none;
+  border-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
+}
+
+/* Arregla el texto invisible en las opciones del <select> */
+.input-dark option {
+  background-color: #ffffff;
+  color: #111111;
+}
