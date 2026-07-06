@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ProductConfiguratorModal from '../components/ProductConfiguratorModal'
+import { supabase } from '../supabase/supabaseClient'
 
 import hamburguesaclasica1 from '../assets/hamburguesaclasica1.png'
 import hamburguesaclasica2 from '../assets/hamburguesaclasica2.jpg'
@@ -56,7 +57,6 @@ const AD = [
   { nombre: 'Pollo a la brasa 1/8', extra: 7.00  },
   { nombre: 'Pollo a la brasa 1/4', extra: 14.00 },
 ]
-
 // Helper: opciones de tamaño genéricas
 const opTamano = (img) => ({
   titulo: 'Elige el tamaño', subtitulo: 'Elige 1 opción',
@@ -169,6 +169,33 @@ export const CARTA = {
 
 const CATEGORIAS = Object.keys(CARTA)
 
+// Imagen de respaldo cuando un producto de Supabase no trae foto
+const IMG_PLACEHOLDER =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="100%" height="100%" fill="#1a1a1a"/></svg>`
+  )
+
+// Convierte un producto guardado en Supabase al mismo formato que usan los productos fijos
+function mapProductoSupabase(p, imagenFallback) {
+  const imagen = p.imagen_url || p.imagen || imagenFallback || IMG_PLACEHOLDER
+  const precio =
+    typeof p.precio === 'number'
+      ? `S/ ${p.precio.toFixed(2)}`
+      : (p.precio || 'S/ 0.00')
+
+  return {
+    id: `sb-${p.id}`,
+    nombre: p.nombre || 'Producto sin nombre',
+    precio,
+    imagen,
+    tag: p.tag || 'Nuevo',
+    desc: p.descripcion || p.desc || '',
+    opciones: p.opciones || opTamano(imagen),
+    complementos: p.complementos || complementos,
+  }
+}
+
 // ── Hook reveal ────────────────────────────────────────────
 function useReveal() {
   const ref = useRef(null)
@@ -224,10 +251,54 @@ function ProductCard({ producto, color, index, onSelect }) {
 function Menu() {
   const [categoriaActiva, setCategoriaActiva] = useState('Hamburguesas')
   const [selectedProduct, setSelectedProduct] = useState(null)
+  const [productosSupabase, setProductosSupabase] = useState([])
   const tabsRef   = useRef(null)
   const activoRef = useRef(null)
   const navigate  = useNavigate()
-  const catData   = CARTA[categoriaActiva]
+
+  useEffect(() => {
+    const fetchProductos = async () => {
+      const { data, error } = await supabase
+        .from('productos')
+        .select('*')
+        .eq('disponible', true)
+        .order('creado_en', { ascending: false })
+      if (error) {
+        console.error('Error al traer productos de Supabase:', error)
+        return
+      }
+      if (data) setProductosSupabase(data)
+    }
+    fetchProductos()
+
+    // Se actualiza en tiempo real cuando el admin agrega, edita o borra un producto
+    const sub = supabase
+      .channel('menu-productos')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'productos' }, fetchProductos)
+      .subscribe()
+
+    return () => supabase.removeChannel(sub)
+  }, [])
+
+  // Combina la carta fija con los productos que el admin agrega desde Supabase,
+  // agrupados por la misma categoría.
+  const cartaCombinada = useMemo(() => {
+    const combinada = {}
+    CATEGORIAS.forEach((cat) => {
+      const fijos = CARTA[cat].productos
+      const dinamicos = productosSupabase
+        .filter((p) => p.categoria === cat)
+        .map((p) => mapProductoSupabase(p, fijos[0]?.imagen))
+
+      combinada[cat] = {
+        ...CARTA[cat],
+        productos: [...fijos, ...dinamicos],
+      }
+    })
+    return combinada
+  }, [productosSupabase])
+
+  const catData = cartaCombinada[categoriaActiva]
 
   useEffect(() => {
     if (activoRef.current && tabsRef.current) {
@@ -270,7 +341,7 @@ function Menu() {
             <div ref={tabsRef} className="tabs-scroll flex gap-2 overflow-x-auto pb-4">
               {CATEGORIAS.map((cat) => {
                 const activo = cat === categoriaActiva
-                const data   = CARTA[cat]
+                const data   = cartaCombinada[cat]
                 return (
                   <button key={cat} ref={activo ? activoRef : null}
                     onClick={() => setCategoriaActiva(cat)}
@@ -354,4 +425,4 @@ function Menu() {
   )
 }
 
-export default Menu 
+export default Menu
