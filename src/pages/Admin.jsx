@@ -8,7 +8,7 @@ import {
   FiLogOut, FiHome, FiMenu, FiX, FiBarChart2,
   FiTrendingUp, FiAward, FiStar, FiPackage,
   FiSettings, FiEdit2, FiTrash2, FiPlus, FiToggleLeft,
-  FiToggleRight, FiSave, FiAlertCircle
+  FiToggleRight, FiSave, FiAlertCircle, FiPrinter, FiSearch
 } from 'react-icons/fi'
 import lesq from '../assets/lesq.png'
 
@@ -39,6 +39,8 @@ function Admin() {
   const [usuarios, setUsuarios]   = useState([])
   const [resenas, setResenas]     = useState([])
   const [productos, setProductos] = useState([])
+  const [searchQuery, setSearchQuery] = useState('')
+  const [verHistorial, setVerHistorial] = useState(false)
   const [config, setConfig]       = useState({
     nombre: 'La Esquina',
     telefono: '',
@@ -100,7 +102,7 @@ function Admin() {
 
   const fetchPedidos = async () => {
     const { data } = await supabase.from('pedidos').select('*')
-    if (data) { setPedidos(data.sort((a, b) => new Date(b.creado_en) - new Date(a.creado_en))); setCargando(false) }
+    if (data) { setPedidos(data.sort((a, b) => new Date(a.creado_en) - new Date(b.creado_en))); setCargando(false) }
   }
   const fetchUsuarios  = async () => { const { data } = await supabase.from('usuarios').select('*'); if (data) setUsuarios(data) }
   const fetchResenas   = async () => { const { data } = await supabase.from('resenas').select('*'); if (data) setResenas(data) }
@@ -133,6 +135,98 @@ function Admin() {
 
   const cambiarEstado = async (id, estado) => {
     await supabase.from('pedidos').update({ estado }).eq('id', id)
+  }
+
+  const imprimirVoucher = (pedido) => {
+    const popup = window.open('', '_blank', 'width=300,height=600')
+    if (!popup) {
+      alert('Por favor permite los popups para poder imprimir el voucher de cocina.')
+      return
+    }
+    
+    const productosVisibles = pedido.productos?.filter(p => p.id !== '_metadata') || []
+    const meta = pedido.productos?.find(p => p.id === '_metadata') || {}
+    const tipoEntrega = pedido.tipo_entrega || meta.tipo_entrega || 'recojo'
+    const direccion = pedido.direccion_entrega || meta.direccion || null
+    const telefono = pedido.telefono_contacto || meta.telefono || null
+    const clienteNombre = meta.nombre || pedido.usuario_email || pedido.usuarioEmail || 'Cliente'
+
+    popup.document.write(`
+      <html>
+        <head>
+          <title>Ticket Cocina - Pedido #${pedido.id.slice(0, 8)}</title>
+          <style>
+            @page { size: 80mm auto; margin: 0; }
+            body {
+              font-family: 'Courier New', Courier, monospace;
+              font-size: 13px;
+              width: 72mm;
+              margin: 0;
+              padding: 8px;
+              color: #000;
+              background-color: #fff;
+            }
+            .text-center { text-align: center; }
+            .bold { font-weight: bold; }
+            .divider { border-top: 1px dashed #000; margin: 8px 0; }
+            .flex-between { display: flex; justify-content: space-between; }
+            .header { font-size: 16px; margin-bottom: 2px; }
+            .item { margin-bottom: 6px; }
+            .meta-info { font-size: 11px; line-height: 1.3; }
+          </style>
+        </head>
+        <body>
+          <div class="text-center bold header">LA ESQUINA</div>
+          <div class="text-center bold">*** TICKET COCINA ***</div>
+          <div class="divider"></div>
+          <div class="meta-info">
+            <div><strong>Pedido:</strong> #${pedido.id.slice(0, 8)}</div>
+            <div><strong>Fecha:</strong> ${pedido.creado_en ? new Date(pedido.creado_en).toLocaleString('es-PE') : '—'}</div>
+            <div><strong>Cliente:</strong> ${clienteNombre}</div>
+            <div><strong>Tipo:</strong> <span style="text-transform: uppercase; font-weight: bold;">${tipoEntrega}</span></div>
+          </div>
+          <div class="divider"></div>
+          <div class="bold" style="margin-bottom: 5px;">PRODUCTOS:</div>
+          ${productosVisibles.map(prod => `
+            <div class="item">
+              <div class="flex-between">
+                <span class="bold">${prod.nombre}</span>
+                <span class="bold">x${prod.cantidad}</span>
+              </div>
+              ${prod.opcion ? `<div style="font-size: 11px; padding-left: 12px;">- Opción: ${prod.opcion}</div>` : ''}
+              ${prod.complemento ? `<div style="font-size: 11px; padding-left: 12px;">- Acompañante: ${prod.complemento}</div>` : ''}
+              ${prod.extra ? `<div style="font-size: 11px; padding-left: 12px;">- Extra: ${prod.extra}</div>` : ''}
+            </div>
+          `).join('')}
+          <div class="divider"></div>
+          <div class="meta-info">
+            ${tipoEntrega === 'delivery' && direccion ? `<div><strong>Dirección:</strong> ${direccion}</div>` : ''}
+            ${telefono ? `<div><strong>Teléfono:</strong> ${telefono}</div>` : ''}
+          </div>
+          <div class="divider"></div>
+          <div class="text-center" style="font-size: 10px; margin-top: 10px;">
+            -- Fin de ticket --
+          </div>
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(function() { window.close(); }, 500);
+            }
+          </script>
+        </body>
+      </html>
+    `)
+    popup.document.close()
+  }
+
+  const enviarACocina = async (pedido) => {
+    try {
+      await supabase.from('pedidos').update({ estado: 'preparando' }).eq('id', pedido.id)
+      imprimirVoucher(pedido)
+    } catch (err) {
+      console.error(err)
+      alert('Error al enviar a cocina: ' + (err.message || err))
+    }
   }
 
   const abrirModalNuevo = () => { setForm(FORM_VACIO); setProductoEditando(null); setModalProducto(true) }
@@ -570,79 +664,182 @@ function Admin() {
             </div>
           )}
 
-          {vistaActiva === 'pedidos' && (
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="text-lg font-bold text-gray-900">Todos los pedidos</h2>
-                <span className="text-sm text-gray-400">{pedidos.length} pedidos en total</span>
-              </div>
-              {cargando ? (
-                <div className="flex justify-center py-20"><div className="w-8 h-8 border-4 border-red-600 border-t-transparent rounded-full animate-spin" /></div>
-              ) : pedidos.length === 0 ? (
-                <p className="text-center text-gray-400 py-10">No hay pedidos aun</p>
-              ) : (
-                pedidos.map((pedido) => {
-                  const tipoEntrega = pedido.tipo_entrega || pedido.productos?.find(p => p.id === '_metadata')?.tipo_entrega || 'recojo'
-                  const direccion = pedido.direccion_entrega || pedido.productos?.find(p => p.id === '_metadata')?.direccion || null
-                  const telefono = pedido.telefono_contacto || pedido.productos?.find(p => p.id === '_metadata')?.telefono || null
-                  const costoDelivery = pedido.costo_delivery !== undefined ? parseFloat(pedido.costo_delivery) : (pedido.productos?.find(p => p.id === '_metadata')?.costo_delivery || 0)
-                  const metodoPago = pedido.metodo_pago || pedido.productos?.find(p => p.id === '_metadata')?.metodo_pago || 'efectivo'
-                  const pagoEstado = pedido.pago_estado || pedido.productos?.find(p => p.id === '_metadata')?.pago_estado || 'pendiente'
+          {vistaActiva === 'pedidos' && (() => {
+            const query = searchQuery.toLowerCase()
+            const pedidosFiltrados = pedidos.filter(pedido => {
+              const idMatch = pedido.id.toLowerCase().includes(query)
+              const emailMatch = (pedido.usuario_email || pedido.usuarioEmail || '').toLowerCase().includes(query)
+              const tipoMatch = (pedido.tipo_entrega || '').toLowerCase().includes(query)
+              
+              const meta = pedido.productos?.find(p => p.id === '_metadata') || {}
+              const nombreMatch = (meta.nombre || '').toLowerCase().includes(query)
+              const telfMatch = (meta.telefono || '').toLowerCase().includes(query)
+              const dirMatch = (meta.direccion || '').toLowerCase().includes(query)
+              
+              return idMatch || emailMatch || tipoMatch || nombreMatch || telfMatch || dirMatch
+            })
 
-                  // Filtrar los productos para no listar el item especial de metadatos en la tabla visual
-                  const productosVisibles = pedido.productos?.filter(p => p.id !== '_metadata') || []
+            const pedidosActivos = pedidosFiltrados.filter(p => ['pendiente', 'preparando', 'listo'].includes(p.estado))
+            const pedidosHistorial = pedidosFiltrados.filter(p => ['entregado', 'cancelado'].includes(p.estado))
 
-                  return (
-                    <div key={pedido.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition">
-                      <div className="flex items-center justify-between mb-3">
-                        <div>
-                          <p className="text-xs text-gray-400">#{pedido.id.slice(0, 8)}</p>
-                          <p className="text-sm font-bold text-gray-900">{pedido.usuario_email || pedido.usuarioEmail}</p>
-                          <p className="text-xs text-gray-400">{pedido.creado_en ? new Date(pedido.creado_en).toLocaleString('es-PE') : '—'}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-red-600 font-bold text-lg">S/ {pedido.total?.toFixed(2)}</p>
-                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1 mt-1 justify-end ${estadoColor[pedido.estado]}`}>
-                            {estadoIcono[pedido.estado]} {pedido.estado}
-                          </span>
-                        </div>
+            const pendientes = pedidosActivos.filter(p => p.estado === 'pendiente')
+            const preparando = pedidosActivos.filter(p => p.estado === 'preparando')
+            const listos = pedidosActivos.filter(p => p.estado === 'listo')
+
+            return (
+              <div className="flex flex-col gap-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                  <div>
+                    <h2 className="text-lg font-bold text-gray-900">Control de Pedidos</h2>
+                    <p className="text-xs text-gray-400 mt-0.5">Gestión de cocina y caja en tiempo real</p>
+                  </div>
+                  
+                  <div className="flex flex-1 max-w-md items-center gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        placeholder="Buscar por ID, correo, nombre, celular..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2.5 pl-10 pr-4 text-sm text-gray-700 outline-none focus:border-red-500 focus:bg-white transition"
+                      />
+                      <span className="absolute left-3.5 top-3.5 text-gray-400">
+                        <FiSearch size={15} />
+                      </span>
+                    </div>
+                    
+                    <button
+                      type="button"
+                      onClick={() => setVerHistorial(!verHistorial)}
+                      className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex-shrink-0 flex items-center gap-2 ${
+                        verHistorial 
+                          ? 'bg-gray-950 text-white shadow-md' 
+                          : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
+                      <FiList size={14} />
+                      {verHistorial ? 'Ver Tablero' : 'Historial'}
+                    </button>
+                  </div>
+                </div>
+
+                {cargando ? (
+                  <div className="flex justify-center py-20">
+                    <div className="w-8 h-8 border-4 border-red-600 border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : verHistorial ? (
+                  <div className="flex flex-col gap-4">
+                    <div className="flex justify-between items-center bg-gray-50 rounded-xl px-4 py-2.5 border border-gray-100">
+                      <span className="text-xs font-bold text-gray-500 uppercase">Historial de Pedidos Finalizados</span>
+                      <span className="text-xs font-bold text-gray-500 bg-gray-200 px-2 py-0.5 rounded-full">{pedidosHistorial.length} pedidos</span>
+                    </div>
+                    {pedidosHistorial.length === 0 ? (
+                      <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center text-gray-400 text-sm">
+                        No hay pedidos en el historial
                       </div>
-                      <div className="border-t border-gray-100 pt-3">
-                        {productosVisibles.map((prod, i) => (
-                          <div key={i} className="flex justify-between text-xs text-gray-500 py-0.5">
-                            <span>{prod.nombre} x{prod.cantidad} {prod.opcion ? `(${prod.opcion})` : ''}</span>
-                            <span>S/ {((prod.precio + (prod.extra || 0)) * prod.cantidad).toFixed(2)}</span>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {pedidosHistorial.map((pedido) => (
+                          <CardPedido
+                            key={pedido.id}
+                            pedido={pedido}
+                            isHistorial={true}
+                            cambiarEstado={cambiarEstado}
+                            enviarACocina={enviarACocina}
+                            imprimirVoucher={imprimirVoucher}
+                            estadoColor={estadoColor}
+                            estadoIcono={estadoIcono}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                    
+                    <div className="bg-yellow-500/5 rounded-2xl border border-yellow-500/10 p-4 flex flex-col gap-4">
+                      <div className="flex justify-between items-center border-b border-yellow-500/10 pb-2">
+                        <span className="text-sm font-black text-yellow-600 uppercase tracking-wide">Pendientes</span>
+                        <span className="text-xs font-black bg-yellow-500 text-white px-2 py-0.5 rounded-full">{pendientes.length}</span>
+                      </div>
+                      <div className="flex flex-col gap-4 min-h-[400px]">
+                        {pendientes.length === 0 ? (
+                          <div className="flex-1 flex items-center justify-center text-xs text-gray-400 text-center py-10">
+                            No hay pedidos pendientes
                           </div>
-                        ))}
-                      </div>
-
-                      {/* Detalles de entrega y pago */}
-                      <div className="mt-2.5 pt-2.5 border-t border-dashed border-gray-200 text-xs text-gray-500 space-y-1 bg-gray-50/50 p-2 rounded-xl border border-gray-100">
-                        <p><span className="font-bold text-gray-700">Entrega:</span> <span className="capitalize font-semibold">{tipoEntrega}</span>{tipoEntrega === 'delivery' && ` (Envío: S/ ${costoDelivery.toFixed(2)})`}</p>
-                        {tipoEntrega === 'delivery' && direccion && <p><span className="font-bold text-gray-700">Dirección:</span> {direccion}</p>}
-                        {telefono && <p><span className="font-bold text-gray-700">Teléfono:</span> {telefono}</p>}
-                        <p>
-                          <span className="font-bold text-gray-700">Pago:</span> <span className="capitalize font-semibold">{metodoPago === 'efectivo' ? 'Efectivo / Yape' : 'Mercado Pago (Online)'}</span> 
-                          <span className={`ml-2 px-2 py-0.5 rounded-full font-bold text-[10px] ${pagoEstado === 'aprobado' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                            {pagoEstado === 'aprobado' ? 'Pagado' : 'Pendiente'}
-                          </span>
-                        </p>
-                      </div>
-
-                      <div className="flex gap-2 flex-wrap mt-3">
-                        {['pendiente', 'preparando', 'listo', 'entregado', 'cancelado'].map((estado) => (
-                          <button key={estado} onClick={() => cambiarEstado(pedido.id, estado)}
-                            className={`text-xs font-semibold px-3 py-1.5 rounded-full transition ${pedido.estado === estado ? 'bg-red-600 text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>
-                            {estado}
-                          </button>
-                        ))}
+                        ) : (
+                          pendientes.map(pedido => (
+                            <CardPedido
+                              key={pedido.id}
+                              pedido={pedido}
+                              cambiarEstado={cambiarEstado}
+                              enviarACocina={enviarACocina}
+                              imprimirVoucher={imprimirVoucher}
+                              estadoColor={estadoColor}
+                              estadoIcono={estadoIcono}
+                            />
+                          ))
+                        )}
                       </div>
                     </div>
-                  )
-                })
-              )}
-            </div>
-          )}
+
+                    <div className="bg-blue-500/5 rounded-2xl border border-blue-500/10 p-4 flex flex-col gap-4">
+                      <div className="flex justify-between items-center border-b border-blue-500/10 pb-2">
+                        <span className="text-sm font-black text-blue-600 uppercase tracking-wide">En Cocina</span>
+                        <span className="text-xs font-black bg-blue-500 text-white px-2 py-0.5 rounded-full">{preparando.length}</span>
+                      </div>
+                      <div className="flex flex-col gap-4 min-h-[400px]">
+                        {preparando.length === 0 ? (
+                          <div className="flex-1 flex items-center justify-center text-xs text-gray-400 text-center py-10">
+                            No hay pedidos en preparación
+                          </div>
+                        ) : (
+                          preparando.map(pedido => (
+                            <CardPedido
+                              key={pedido.id}
+                              pedido={pedido}
+                              cambiarEstado={cambiarEstado}
+                              enviarACocina={enviarACocina}
+                              imprimirVoucher={imprimirVoucher}
+                              estadoColor={estadoColor}
+                              estadoIcono={estadoIcono}
+                            />
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="bg-green-500/5 rounded-2xl border border-green-500/10 p-4 flex flex-col gap-4">
+                      <div className="flex justify-between items-center border-b border-green-500/10 pb-2">
+                        <span className="text-sm font-black text-green-600 uppercase tracking-wide">Listos para Entrega</span>
+                        <span className="text-xs font-black bg-green-500 text-white px-2 py-0.5 rounded-full">{listos.length}</span>
+                      </div>
+                      <div className="flex flex-col gap-4 min-h-[400px]">
+                        {listos.length === 0 ? (
+                          <div className="flex-1 flex items-center justify-center text-xs text-gray-400 text-center py-10">
+                            No hay pedidos listos
+                          </div>
+                        ) : (
+                          listos.map(pedido => (
+                            <CardPedido
+                              key={pedido.id}
+                              pedido={pedido}
+                              cambiarEstado={cambiarEstado}
+                              enviarACocina={enviarACocina}
+                              imprimirVoucher={imprimirVoucher}
+                              estadoColor={estadoColor}
+                              estadoIcono={estadoIcono}
+                            />
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                  </div>
+                )}
+              </div>
+            )
+          })()}
 
           {vistaActiva === 'productos' && (
             <div className="flex flex-col gap-4">
@@ -921,6 +1118,126 @@ ALTER TABLE public.pedidos ADD COLUMN IF NOT EXISTS pago_estado text DEFAULT 'pe
 
         </div>
       </div>
+    </div>
+  )
+}
+
+function CardPedido({ pedido, isHistorial = false, cambiarEstado, enviarACocina, imprimirVoucher, estadoColor, estadoIcono }) {
+  const meta = pedido.productos?.find(p => p.id === '_metadata') || {}
+  const tipoEntrega = pedido.tipo_entrega || meta.tipo_entrega || 'recojo'
+  const direccion = pedido.direccion_entrega || meta.direccion || null
+  const telefono = pedido.telefono_contacto || meta.telefono || null
+  const costoDelivery = pedido.costo_delivery !== undefined ? parseFloat(pedido.costo_delivery) : (meta.costo_delivery || 0)
+  const metodoPago = pedido.metodo_pago || meta.metodo_pago || 'efectivo'
+  const pagoEstado = pedido.pago_estado || meta.pago_estado || 'pendiente'
+  const clienteNombre = meta.nombre || 'Cliente'
+
+  const productosVisibles = pedido.productos?.filter(p => p.id !== '_metadata') || []
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 hover:shadow-md transition text-left flex flex-col gap-3">
+      <div className="flex items-start justify-between">
+        <div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-bold text-gray-900 bg-gray-100 px-2 py-0.5 rounded">
+              #{pedido.id.slice(0, 8)}
+            </span>
+            <button
+              onClick={() => imprimirVoucher(pedido)}
+              className="text-gray-400 hover:text-gray-600 p-1 transition"
+              title="Imprimir ticket"
+            >
+              <FiPrinter size={13} />
+            </button>
+          </div>
+          <p className="text-xs font-black text-gray-700 truncate max-w-[180px] mt-1">{clienteNombre}</p>
+          <p className="text-[10px] text-gray-400">{pedido.usuario_email || pedido.usuarioEmail}</p>
+        </div>
+        <div className="text-right">
+          <p className="text-red-600 font-bold text-sm">S/ {pedido.total?.toFixed(2)}</p>
+          <p className="text-[10px] text-gray-400">{pedido.creado_en ? new Date(pedido.creado_en).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }) : '—'}</p>
+        </div>
+      </div>
+
+      <div className="border-t border-gray-50 pt-2 flex flex-col gap-1">
+        {productosVisibles.map((prod, i) => (
+          <div key={i} className="flex justify-between text-xs text-gray-600">
+            <span>{prod.nombre} <strong className="text-gray-950 font-bold">x{prod.cantidad}</strong> {prod.opcion ? `(${prod.opcion})` : ''}</span>
+            <span>S/ {((prod.precio + (prod.extra || 0)) * prod.cantidad).toFixed(2)}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="border-t border-dashed border-gray-100 pt-2 text-[10px] text-gray-500 space-y-0.5 bg-gray-50 p-2 rounded-xl">
+        <p><span className="font-bold text-gray-700">Entrega:</span> <span className="capitalize font-semibold">{tipoEntrega}</span>{tipoEntrega === 'delivery' && ` (S/ ${costoDelivery.toFixed(2)})`}</p>
+        {tipoEntrega === 'delivery' && direccion && <p className="truncate"><span className="font-bold text-gray-700">Dirección:</span> {direccion}</p>}
+        {telefono && <p><span className="font-bold text-gray-700">Teléfono:</span> {telefono}</p>}
+        <p>
+          <span className="font-bold text-gray-700">Pago:</span> <span className="capitalize font-semibold">{metodoPago === 'efectivo' ? 'Efectivo/Yape' : 'Pago Online'}</span> 
+          <span className={`ml-2 px-1.5 py-0.5 rounded-full font-bold text-[9px] ${pagoEstado === 'aprobado' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+            {pagoEstado === 'aprobado' ? 'Pagado' : 'Pendiente'}
+          </span>
+        </p>
+      </div>
+
+      {!isHistorial && (
+        <div className="border-t border-gray-50 pt-2 mt-1">
+          {pedido.estado === 'pendiente' && (
+            <button
+              onClick={() => enviarACocina(pedido)}
+              className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-black py-2 rounded-xl text-xs transition active:scale-95 flex items-center justify-center gap-1.5 shadow-sm"
+            >
+              <FiPrinter size={13} />
+              Enviar a cocina
+            </button>
+          )}
+
+          {pedido.estado === 'preparando' && (
+            <button
+              onClick={() => cambiarEstado(pedido.id, 'listo')}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-black py-2 rounded-xl text-xs transition active:scale-95 flex items-center justify-center gap-1.5 shadow-sm"
+            >
+              <FiCheckCircle size={13} />
+              Listo
+            </button>
+          )}
+
+          {pedido.estado === 'listo' && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => cambiarEstado(pedido.id, 'entregado')}
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white font-black py-2 rounded-xl text-xs transition active:scale-95 flex items-center justify-center gap-1 shadow-sm"
+              >
+                <FiTruck size={13} />
+                Entregar
+              </button>
+              <button
+                onClick={() => cambiarEstado(pedido.id, 'cancelado')}
+                className="bg-red-50 hover:bg-red-100 text-red-600 font-bold px-3 py-2 rounded-xl text-xs transition active:scale-95"
+                title="Cancelar pedido"
+              >
+                <FiXCircle size={13} />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {isHistorial && (
+        <div className="border-t border-gray-50 pt-2 flex items-center justify-between mt-1">
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${estadoColor[pedido.estado]}`}>
+            {estadoIcono[pedido.estado]} {pedido.estado === 'entregado' ? 'Entregado' : 'Cancelado'}
+          </span>
+          <div className="flex gap-1.5">
+            <button
+              onClick={() => cambiarEstado(pedido.id, 'pendiente')}
+              className="text-[10px] text-gray-500 hover:text-gray-900 border border-gray-200 px-2 py-1 rounded-lg transition"
+            >
+              Reabrir
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
