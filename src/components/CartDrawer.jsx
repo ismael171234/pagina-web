@@ -243,29 +243,23 @@ export default function CartDrawer() {
           })
         }
 
-        const mpRes = await fetch('https://api.mercadopago.com/v1/checkout/preferences', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${ajustes.mercado_pago_access_token}`,
-            'Content-Type': 'application/json'
+        const { data: preference, error: mpError } = await supabase.rpc('crear_preferencia_mp', {
+          items_json: items,
+          back_urls_json: {
+            success: `${window.location.origin}/orders?pago=exitoso&pedido_id=${orderId}`,
+            failure: `${window.location.origin}/orders?pago=fallido&pedido_id=${orderId}`,
+            pending: `${window.location.origin}/orders?pago=pendiente&pedido_id=${orderId}`
           },
-          body: JSON.stringify({
-            items,
-            back_urls: {
-              success: `${window.location.origin}/orders?pago=exitoso&pedido_id=${orderId}`,
-              failure: `${window.location.origin}/orders?pago=fallido&pedido_id=${orderId}`,
-              pending: `${window.location.origin}/orders?pago=pendiente&pedido_id=${orderId}`
-            },
-            auto_return: 'approved'
-          })
+          auto_return_text: window.location.hostname.includes('localhost') ? '' : 'approved'
         })
 
-        if (!mpRes.ok) {
-          const errData = await mpRes.json()
-          throw new Error(errData.message || 'Error al conectar con Mercado Pago')
+        if (mpError) {
+          throw new Error(mpError.message || 'Error al conectar con Mercado Pago')
         }
 
-        const preference = await mpRes.json()
+        if (!preference || !preference.init_point) {
+          throw new Error('No se pudo generar la URL de pago de Mercado Pago')
+        }
         
         vaciarCarrito()
         setCartOpen(false)
