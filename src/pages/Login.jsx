@@ -163,17 +163,6 @@ function Login() {
             </div>
           )}
 
-          {!isRecovery && (
-            <>
-
-              <div className="flex items-center gap-3 mb-5">
-                <div className="flex-1 h-px bg-gray-200" />
-                <span className="text-xs text-gray-400 font-medium">o continúa con correo</span>
-                <div className="flex-1 h-px bg-gray-200" />
-              </div>
-            </>
-          )}
-
           <div className="flex flex-col gap-4">
             {isRegister && !isRecovery && (
               <div className="relative">
