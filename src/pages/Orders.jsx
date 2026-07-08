@@ -476,11 +476,18 @@ function Orders() {
     if (!nombreEdit.trim()) return
     setGuardando(true)
     try {
-      const { error } = await supabase
+      const { error: dbError } = await supabase
         .from('usuarios')
         .update({ nombre: nombreEdit.trim() })
         .eq('id', usuario.id)
-      if (error) throw error
+      if (dbError) throw dbError
+
+      // También actualizar en Supabase Auth metadata
+      const { error: authError } = await supabase.auth.updateUser({
+        data: { full_name: nombreEdit.trim() }
+      })
+      if (authError) throw authError
+
       await recargarDatosUsuario()
       setGuardadoOk(true)
       setEditando(false)
@@ -972,7 +979,16 @@ function Orders() {
                   </div>
                   
                   <div className="px-5 py-4">
-                    {!editandoPassword ? (
+                    {usuario?.app_metadata?.provider && usuario?.app_metadata?.provider !== 'email' ? (
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-white">Contraseña</p>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            Tu cuenta está vinculada a {usuario.app_metadata.provider === 'google' ? 'Google' : usuario.app_metadata.provider}. No requieres contraseña aquí.
+                          </p>
+                        </div>
+                      </div>
+                    ) : !editandoPassword ? (
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="text-sm font-semibold text-white">Contraseña</p>

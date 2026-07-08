@@ -299,24 +299,19 @@ function Navbar() {
             {/* Menú de usuario (Dropdown) */}
             {usuario ? (
               <div className="relative" ref={profileRef}>
-                {/* Desktop trigger */}
                 <button
                   onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-                  className="hidden md:flex flex-col items-end leading-tight hover:opacity-80 transition text-right"
+                  className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/5 border border-white/8 hover:bg-red-600/20 hover:border-red-500/40 text-gray-300 hover:text-white transition-all duration-200 active:scale-90"
                 >
-                  <span className="text-[10px] text-gray-500">Hola,</span>
-                  <span className="text-white font-black text-sm flex items-center gap-1.5">
-                    {nombreCorto}
-                    <span className="text-[8px] text-gray-500">▼</span>
-                  </span>
-                </button>
-
-                {/* Mobile trigger */}
-                <button
-                  onClick={() => setProfileMenuOpen(!profileMenuOpen)}
-                  className="md:hidden w-9 h-9 flex items-center justify-center rounded-xl bg-white/5 border border-white/8 hover:border-red-500/40 text-gray-300 hover:text-white transition-all duration-200"
-                >
-                  <FiUser size={16} />
+                  {usuario.photoURL || usuario.user_metadata?.avatar_url ? (
+                    <img
+                      src={usuario.photoURL || usuario.user_metadata?.avatar_url}
+                      alt="avatar"
+                      className="w-full h-full object-cover rounded-xl"
+                    />
+                  ) : (
+                    <FiUser size={16} />
+                  )}
                 </button>
 
                 {/* Dropdown flotante */}

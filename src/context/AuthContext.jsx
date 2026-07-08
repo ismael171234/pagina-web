@@ -72,6 +72,14 @@ export function AuthProvider({ children }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       const user = session?.user ?? null
       setUsuario(user)
+
+      if (event === 'PASSWORD_RECOVERY') {
+        if (window.location.pathname !== '/reset-password') {
+          window.location.href = '/reset-password'
+          return
+        }
+      }
+
       if (user) {
         await fetchDatosUsuario(user)
       } else {
