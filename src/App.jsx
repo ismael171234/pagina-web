@@ -6,6 +6,7 @@ import Login from './pages/Login'
 import Admin from './pages/Admin'
 import Historia from './pages/Historia'
 import Contactanos from './pages/Contactanos'
+import ResetPassword from './pages/ResetPassword'
 import NotFound from './pages/NotFound'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
@@ -19,7 +20,7 @@ import TrabajaConNosotros from './pages/TrabajaConNosotros'
 
 function Layout() {
   const location = useLocation()
-  const hideNav = ['/login', '/admin'].includes(location.pathname)
+  const hideNav = ['/login', '/admin', '/reset-password'].includes(location.pathname)
 
   return (
     <>
@@ -31,10 +32,11 @@ function Layout() {
         <Route path="/orders"        element={<Orders />} />
         <Route path="/login"         element={<Login />} />
         <Route path="/admin"         element={<Admin />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/historia"      element={<Historia />} />
         <Route path="/contactanos"   element={<Contactanos />} />
-        <Route path="*"              element={<NotFound />} />
         <Route path="/trabaja-con-nosotros" element={<TrabajaConNosotros />} />
+        <Route path="*"              element={<NotFound />} />
       </Routes>
       {!hideNav && <Footer />}
       {!hideNav && <Chatbot />}

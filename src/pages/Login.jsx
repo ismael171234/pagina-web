@@ -12,6 +12,7 @@ import { useEffect } from 'react'
 function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [isRegister, setIsRegister] = useState(false)
+  const [isRecovery, setIsRecovery] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [nombre, setNombre] = useState('')
@@ -19,14 +20,14 @@ function Login() {
   const [infoMsg, setInfoMsg] = useState('')
   const [cargando, setCargando] = useState(false)
 
-  const { usuario, loginGoogle, loginEmail, registrar } = useAuth()
+  const { usuario, loginGoogle, loginEmail, registrar, recuperarPassword } = useAuth()
   const navigate = useNavigate()
 
   useEffect(() => {
-    if (usuario) {
+    if (usuario && !isRecovery) {
       navigate('/')
     }
-  }, [usuario, navigate])
+  }, [usuario, navigate, isRecovery])
 
   const validaciones = {
     longitud: password.length >= 8,
@@ -51,6 +52,27 @@ function Login() {
   }
 
   const handleSubmit = async () => {
+    if (isRecovery) {
+      if (!email) {
+        setError('Por favor ingresa tu correo electrónico')
+        return
+      }
+      try {
+        setCargando(true)
+        setError('')
+        setInfoMsg('')
+        const { error: recError } = await recuperarPassword(email)
+        if (recError) throw recError
+        setInfoMsg('¡Enlace de recuperación enviado! Revisa tu bandeja de entrada.')
+        setIsRecovery(false)
+      } catch (err) {
+        setError(err.message || 'Error al enviar el correo de recuperación')
+      } finally {
+        setCargando(false)
+      }
+      return
+    }
+
     if (!email || !password) {
       setError('Por favor completa todos los campos')
       return
@@ -119,10 +141,14 @@ function Login() {
           </div>
 
           <h2 className="text-2xl font-bold text-gray-900 text-center mb-1">
-            {isRegister ? 'Crear cuenta' : 'Iniciar sesión'}
+            {isRecovery ? 'Recuperar contraseña' : isRegister ? 'Crear cuenta' : 'Iniciar sesión'}
           </h2>
           <p className="text-gray-400 text-sm text-center mb-6">
-            {isRegister ? 'Regístrate para hacer tus pedidos' : 'Accede a tu cuenta para pedir'}
+            {isRecovery 
+              ? 'Ingresa tu correo para recibir un enlace de restauración' 
+              : isRegister 
+                ? 'Regístrate para hacer tus pedidos' 
+                : 'Accede a tu cuenta para pedir'}
           </p>
 
           {error && (
@@ -137,23 +163,27 @@ function Login() {
             </div>
           )}
 
-          <button
-            onClick={handleGoogle}
-            disabled={cargando}
-            className="w-full flex items-center justify-center gap-3 border-2 border-gray-200 rounded-xl py-3 font-semibold text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition mb-5 shadow-sm disabled:opacity-50"
-          >
-            <FcGoogle className="text-2xl" />
-            Continuar con Google
-          </button>
+          {!isRecovery && (
+            <>
+              <button
+                onClick={handleGoogle}
+                disabled={cargando}
+                className="w-full flex items-center justify-center gap-3 border-2 border-gray-200 rounded-xl py-3 font-semibold text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition mb-5 shadow-sm disabled:opacity-50"
+              >
+                <FcGoogle className="text-2xl" />
+                Continuar con Google
+              </button>
 
-          <div className="flex items-center gap-3 mb-5">
-            <div className="flex-1 h-px bg-gray-200" />
-            <span className="text-xs text-gray-400 font-medium">o continúa con correo</span>
-            <div className="flex-1 h-px bg-gray-200" />
-          </div>
+              <div className="flex items-center gap-3 mb-5">
+                <div className="flex-1 h-px bg-gray-200" />
+                <span className="text-xs text-gray-400 font-medium">o continúa con correo</span>
+                <div className="flex-1 h-px bg-gray-200" />
+              </div>
+            </>
+          )}
 
           <div className="flex flex-col gap-4">
-            {isRegister && (
+            {isRegister && !isRecovery && (
               <div className="relative">
                 <input
                   type="text"
@@ -181,26 +211,28 @@ function Login() {
               </span>
             </div>
 
-            <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                placeholder="Contraseña"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-red-500 transition pl-11 pr-11"
-              />
-              <span className="absolute left-3 top-3.5 text-gray-400">
-                <FiLock />
-              </span>
-              <button
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600"
-              >
-                {showPassword ? <FiEyeOff /> : <FiEye />}
-              </button>
-            </div>
+            {!isRecovery && (
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Contraseña"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-red-500 transition pl-11 pr-11"
+                />
+                <span className="absolute left-3 top-3.5 text-gray-400">
+                  <FiLock />
+                </span>
+                <button
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-3.5 text-gray-400 hover:text-gray-600"
+                >
+                  {showPassword ? <FiEyeOff /> : <FiEye />}
+                </button>
+              </div>
+            )}
 
-            {isRegister && password.length > 0 && (
+            {isRegister && !isRecovery && password.length > 0 && (
               <div className="bg-gray-50 rounded-xl p-3 flex flex-col gap-1.5">
                 <p className="text-xs font-bold text-gray-600 mb-1">Requisitos de contraseña:</p>
                 {[
@@ -223,11 +255,15 @@ function Login() {
             )}
           </div>
 
-          {!isRegister && (
+          {!isRegister && !isRecovery && (
             <div className="text-right mt-2">
-              <a href="#" className="text-xs text-red-600 font-semibold hover:underline">
+              <button
+                type="button"
+                onClick={() => { setIsRecovery(true); setError(''); setInfoMsg(''); }}
+                className="text-xs text-red-600 font-semibold hover:underline"
+              >
                 ¿Olvidaste tu contraseña?
-              </a>
+              </button>
             </div>
           )}
 
@@ -236,17 +272,36 @@ function Login() {
             disabled={cargando}
             className="w-full bg-red-600 text-white font-bold py-3 rounded-xl mt-5 hover:bg-red-700 transition shadow-md active:scale-95 disabled:opacity-50"
           >
-            {cargando ? 'Cargando...' : isRegister ? 'Crear cuenta' : 'Iniciar sesión'}
+            {cargando 
+              ? 'Cargando...' 
+              : isRecovery 
+                ? 'Enviar enlace' 
+                : isRegister 
+                  ? 'Crear cuenta' 
+                  : 'Iniciar sesión'}
           </button>
 
           <p className="text-center text-sm text-gray-500 mt-5">
-            {isRegister ? '¿Ya tienes cuenta?' : '¿No tienes cuenta?'}{' '}
-            <button
-              onClick={() => { setIsRegister(!isRegister); setError(''); setPassword('') }}
-              className="text-red-600 font-bold hover:underline"
-            >
-              {isRegister ? 'Inicia sesión' : 'Regístrate'}
-            </button>
+            {isRecovery ? (
+              <button
+                type="button"
+                onClick={() => { setIsRecovery(false); setError(''); setInfoMsg(''); }}
+                className="text-red-600 font-bold hover:underline"
+              >
+                Volver al inicio de sesión
+              </button>
+            ) : (
+              <>
+                {isRegister ? '¿Ya tienes cuenta?' : '¿No tienes cuenta?'}{' '}
+                <button
+                  type="button"
+                  onClick={() => { setIsRegister(!isRegister); setError(''); setPassword('') }}
+                  className="text-red-600 font-bold hover:underline"
+                >
+                  {isRegister ? 'Inicia sesión' : 'Regístrate'}
+                </button>
+              </>
+            )}
           </p>
 
           <p className="text-center text-xs text-gray-300 mt-6">La Esquina © 2026</p>
