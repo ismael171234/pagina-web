@@ -7,7 +7,8 @@ import {
   FiMinus, FiPlus, FiTrash2, FiShoppingCart, FiClock,
   FiCheckCircle, FiTruck, FiXCircle, FiShoppingBag,
   FiPackage, FiUser, FiEdit2, FiCheck, FiX, FiLogOut,
-  FiMail, FiShield, FiBell, FiBellOff, FiStar, FiMessageSquare
+  FiMail, FiShield, FiBell, FiBellOff, FiStar, FiMessageSquare,
+  FiLock, FiEye, FiEyeOff
 } from 'react-icons/fi'
 
 const generateUUID = () => {
