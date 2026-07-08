@@ -10,7 +10,7 @@ import {
   FiSettings, FiEdit2, FiTrash2, FiPlus, FiToggleLeft,
   FiToggleRight, FiSave, FiAlertCircle, FiPrinter, FiSearch
 } from 'react-icons/fi'
-import lesq from '../assets/lesq.png'
+const lesq = 'https://uprqwroiifoetvohfldg.supabase.co/storage/v1/object/public/Productos/LESQ.png'
 
 function Barra({ label, valor, max, color = '#e63946', prefix = '', suffix = '' }) {
   const pct = max > 0 ? Math.round((valor / max) * 100) : 0

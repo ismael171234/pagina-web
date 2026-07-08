@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import logo from '../assets/imagesesquina.jpeg'
-import fondo from '../assets/lugaresquina.jpeg'
+const logo = 'https://uprqwroiifoetvohfldg.supabase.co/storage/v1/object/public/Productos/imagesesquina.jpeg'
+const fondo = 'https://uprqwroiifoetvohfldg.supabase.co/storage/v1/object/public/Productos/lugaresquina.jpeg'
 import { FiEye, FiEyeOff, FiLock, FiCheck, FiX } from 'react-icons/fi'
 
 function ResetPassword() {

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
-import lesq from '../assets/lesq.png'
+const lesq = 'https://uprqwroiifoetvohfldg.supabase.co/storage/v1/object/public/Productos/LESQ.png'
 import {
   HiMenu, HiX,
 } from 'react-icons/hi'
