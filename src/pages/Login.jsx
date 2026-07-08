@@ -92,7 +92,7 @@ function Login() {
       if (isRegister) {
         const { data, error: regError } = await registrar(email, password)
         if (regError) throw regError
-        
+
         if (data?.user) {
           const { error: dbError } = await supabase.from('usuarios').upsert({
             id: data.user.id,
@@ -103,7 +103,7 @@ function Login() {
             creado_en: new Date().toISOString()
           })
           if (dbError) console.error('Error inserting user to public.usuarios:', dbError)
-          
+
           if (!data.session) {
             setInfoMsg('¡Cuenta creada con éxito! Se ha enviado un correo de confirmación. Por favor, verifica tu bandeja de entrada antes de iniciar sesión.')
             setIsRegister(false)
@@ -129,7 +129,7 @@ function Login() {
 
       <div className="hidden md:flex w-1/2 relative">
         <img src={fondo} alt="La Esquina" className="w-full h-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-r from-black/80 to-black/40 flex flex-col justify-center px-12"> 
+        <div className="absolute inset-0 bg-gradient-to-r from-black/80 to-black/40 flex flex-col justify-center px-12">
         </div>
       </div>
 
@@ -144,10 +144,10 @@ function Login() {
             {isRecovery ? 'Recuperar contraseña' : isRegister ? 'Crear cuenta' : 'Iniciar sesión'}
           </h2>
           <p className="text-gray-400 text-sm text-center mb-6">
-            {isRecovery 
-              ? 'Ingresa tu correo para recibir un enlace de restauración' 
-              : isRegister 
-                ? 'Regístrate para hacer tus pedidos' 
+            {isRecovery
+              ? 'Ingresa tu correo para recibir un enlace de restauración'
+              : isRegister
+                ? 'Regístrate para hacer tus pedidos'
                 : 'Accede a tu cuenta para pedir'}
           </p>
 
@@ -165,14 +165,6 @@ function Login() {
 
           {!isRecovery && (
             <>
-              <button
-                onClick={handleGoogle}
-                disabled={cargando}
-                className="w-full flex items-center justify-center gap-3 border-2 border-gray-200 rounded-xl py-3 font-semibold text-gray-700 hover:bg-gray-50 hover:border-gray-300 transition mb-5 shadow-sm disabled:opacity-50"
-              >
-                <FcGoogle className="text-2xl" />
-                Continuar con Google
-              </button>
 
               <div className="flex items-center gap-3 mb-5">
                 <div className="flex-1 h-px bg-gray-200" />
@@ -272,12 +264,12 @@ function Login() {
             disabled={cargando}
             className="w-full bg-red-600 text-white font-bold py-3 rounded-xl mt-5 hover:bg-red-700 transition shadow-md active:scale-95 disabled:opacity-50"
           >
-            {cargando 
-              ? 'Cargando...' 
-              : isRecovery 
-                ? 'Enviar enlace' 
-                : isRegister 
-                  ? 'Crear cuenta' 
+            {cargando
+              ? 'Cargando...'
+              : isRecovery
+                ? 'Enviar enlace'
+                : isRegister
+                  ? 'Crear cuenta'
                   : 'Iniciar sesión'}
           </button>
 
