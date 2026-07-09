@@ -75,6 +75,8 @@ function Admin() {
   const [categoriaEditando, setCategoriaEditando] = useState(null)
   const [formCategoria, setFormCategoria] = useState({ nombre: '', descripcion: '', color: '#e63946' })
   const [guardandoCategoria, setGuardandoCategoria] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [verHistorial, setVerHistorial] = useState(false)
 
   const listaCategorias = categorias.length > 0 ? categorias.map(c => c.nombre) : DEFAULT_CATEGORIAS
 
