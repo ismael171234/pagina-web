@@ -77,6 +77,22 @@ function Admin() {
   const [guardandoCategoria, setGuardandoCategoria] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [verHistorial, setVerHistorial] = useState(false)
+  const [filtroPago, setFiltroPago] = useState('todos')
+  const [ordenLlegada, setOrdenLlegada] = useState('recientes') // 'recientes' | 'antiguos'
+  const [filtroFechaPedido, setFiltroFechaPedido] = useState('cualquiera') // 'cualquiera' | 'hoy' | 'ayer' | 'semana'
+  const [paginaHistorial, setPaginaHistorial] = useState(1)
+  const itemsPorPaginaHistorial = 9 // 3 columnas, 3 filas
+  const [paginaProductos, setPaginaProductos] = useState(1)
+  const itemsPorPaginaProductos = 12 // 3 columnas, 4 filas
+
+  // Reiniciar paginación al cambiar filtros
+  useEffect(() => {
+    setPaginaHistorial(1)
+  }, [searchQuery, filtroPago, ordenLlegada, filtroFechaPedido, verHistorial])
+
+  useEffect(() => {
+    setPaginaProductos(1)
+  }, [filtroCategoria])
 
   const listaCategorias = categorias.length > 0 ? categorias.map(c => c.nombre) : DEFAULT_CATEGORIAS
 
@@ -1055,7 +1071,7 @@ function Admin() {
 
           {vistaActiva === 'pedidos' && (() => {
             const query = searchQuery.toLowerCase()
-            const pedidosFiltrados = pedidos.filter(pedido => {
+            let pedidosFiltrados = pedidos.filter(pedido => {
               const idMatch = pedido.id.toLowerCase().includes(query)
               const emailMatch = (pedido.usuario_email || pedido.usuarioEmail || '').toLowerCase().includes(query)
               const tipoMatch = (pedido.tipo_entrega || '').toLowerCase().includes(query)
@@ -1068,12 +1084,62 @@ function Admin() {
               return idMatch || emailMatch || tipoMatch || nombreMatch || telfMatch || dirMatch
             })
 
+            // Filtrar por método de pago
+            if (filtroPago !== 'todos') {
+              pedidosFiltrados = pedidosFiltrados.filter(pedido => {
+                const meta = pedido.productos?.find(p => p.id === '_metadata') || {}
+                const metodo = pedido.metodo_pago || meta.metodo_pago || 'efectivo'
+                return metodo === filtroPago
+              })
+            }
+
+            // Filtrar por fecha
+            if (filtroFechaPedido !== 'cualquiera') {
+              const hoy = new Date()
+              hoy.setHours(0, 0, 0, 0)
+              
+              const ayer = new Date()
+              ayer.setDate(ayer.getDate() - 1)
+              ayer.setHours(0, 0, 0, 0)
+
+              const haceUnaSemana = new Date()
+              haceUnaSemana.setDate(haceUnaSemana.getDate() - 7)
+              haceUnaSemana.setHours(0, 0, 0, 0)
+
+              pedidosFiltrados = pedidosFiltrados.filter(pedido => {
+                if (!pedido.creado_en) return false
+                const fecha = new Date(pedido.creado_en)
+                if (filtroFechaPedido === 'hoy') {
+                  return fecha >= hoy
+                }
+                if (filtroFechaPedido === 'ayer') {
+                  return fecha >= ayer && fecha < hoy
+                }
+                if (filtroFechaPedido === 'semana') {
+                  return fecha >= haceUnaSemana
+                }
+                return true
+              })
+            }
+
+            // Ordenar
+            pedidosFiltrados.sort((a, b) => {
+              const dateA = new Date(a.creado_en || 0)
+              const dateB = new Date(b.creado_en || 0)
+              return ordenLlegada === 'recientes' ? dateB - dateA : dateA - dateB
+            })
+
             const pedidosActivos = pedidosFiltrados.filter(p => ['pendiente', 'preparando', 'listo'].includes(p.estado))
             const pedidosHistorial = pedidosFiltrados.filter(p => ['entregado', 'cancelado'].includes(p.estado))
 
             const pendientes = pedidosActivos.filter(p => p.estado === 'pendiente')
             const preparando = pedidosActivos.filter(p => p.estado === 'preparando')
             const listos = pedidosActivos.filter(p => p.estado === 'listo')
+
+            // Paginación de Historial
+            const totalPaginasHistorial = Math.ceil(pedidosHistorial.length / itemsPorPaginaHistorial) || 1
+            const idxInicioHistorial = (paginaHistorial - 1) * itemsPorPaginaHistorial
+            const pedidosHistorialPaginados = pedidosHistorial.slice(idxInicioHistorial, idxInicioHistorial + itemsPorPaginaHistorial)
 
             return (
               <div className="flex flex-col gap-6">
@@ -1097,18 +1163,87 @@ function Admin() {
                       </span>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => setVerHistorial(!verHistorial)}
-                      className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex-shrink-0 flex items-center gap-2 ${verHistorial
-                          ? 'bg-gray-950 text-white shadow-md'
-                          : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
-                        }`}
-                    >
-                      <FiList size={14} />
-                      {verHistorial ? 'Ver Tablero' : 'Historial'}
-                    </button>
                   </div>
+                </div>
+
+                {/* Barra de Filtros de Pedidos */}
+                <div className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm flex flex-wrap items-center gap-4 text-xs font-semibold text-gray-600">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] uppercase text-gray-400 font-bold text-left">Orden de llegada</label>
+                    <select
+                      value={ordenLlegada}
+                      onChange={(e) => setOrdenLlegada(e.target.value)}
+                      className="bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs font-bold text-gray-700 outline-none focus:border-red-500 transition"
+                    >
+                      <option value="recientes">Más recientes primero</option>
+                      <option value="antiguos">Más antiguos primero</option>
+                    </select>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] uppercase text-gray-400 font-bold text-left">Método de pago</label>
+                    <select
+                      value={filtroPago}
+                      onChange={(e) => setFiltroPago(e.target.value)}
+                      className="bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs font-bold text-gray-700 outline-none focus:border-red-500 transition"
+                    >
+                      <option value="todos">Todos los métodos</option>
+                      <option value="efectivo">Efectivo / Yape</option>
+                      <option value="tarjeta">Mercado Pago (Online)</option>
+                    </select>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] uppercase text-gray-400 font-bold text-left">Fecha del pedido</label>
+                    <select
+                      value={filtroFechaPedido}
+                      onChange={(e) => setFiltroFechaPedido(e.target.value)}
+                      className="bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs font-bold text-gray-700 outline-none focus:border-red-500 transition"
+                    >
+                      <option value="cualquiera">Cualquier fecha</option>
+                      <option value="hoy">Hoy</option>
+                      <option value="ayer">Ayer</option>
+                      <option value="semana">Últimos 7 días</option>
+                    </select>
+                  </div>
+
+                  {(filtroPago !== 'todos' || filtroFechaPedido !== 'cualquiera' || searchQuery !== '') && (
+                    <button
+                      onClick={() => {
+                        setFiltroPago('todos')
+                        setFiltroFechaPedido('cualquiera')
+                        setSearchQuery('')
+                        setOrdenLlegada('recientes')
+                      }}
+                      className="text-red-600 hover:text-red-700 font-bold underline transition self-end pb-2"
+                    >
+                      Limpiar filtros
+                    </button>
+                  )}
+                </div>
+
+                {/* Selector de Vista: Activos vs Historial */}
+                <div className="flex gap-2 border-b border-gray-200 pb-1">
+                  <button
+                    onClick={() => setVerHistorial(false)}
+                    className={`pb-2.5 px-5 text-sm font-bold border-b-2 transition-all ${
+                      !verHistorial
+                        ? 'border-red-600 text-red-600'
+                        : 'border-transparent text-gray-400 hover:text-gray-600'
+                    }`}
+                  >
+                    Pedidos Activos ({pedidosActivos.length})
+                  </button>
+                  <button
+                    onClick={() => setVerHistorial(true)}
+                    className={`pb-2.5 px-5 text-sm font-bold border-b-2 transition-all ${
+                      verHistorial
+                        ? 'border-red-600 text-red-600'
+                        : 'border-transparent text-gray-400 hover:text-gray-600'
+                    }`}
+                  >
+                    Historial de Pedidos ({pedidosHistorial.length})
+                  </button>
                 </div>
 
                 {cargando ? (
@@ -1121,25 +1256,52 @@ function Admin() {
                       <span className="text-xs font-bold text-gray-500 uppercase">Historial de Pedidos Finalizados</span>
                       <span className="text-xs font-bold text-gray-500 bg-gray-200 px-2 py-0.5 rounded-full">{pedidosHistorial.length} pedidos</span>
                     </div>
-                    {pedidosHistorial.length === 0 ? (
+                    {pedidosHistorialPaginados.length === 0 ? (
                       <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center text-gray-400 text-sm">
                         No hay pedidos en el historial
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {pedidosHistorial.map((pedido) => (
-                          <CardPedido
-                            key={pedido.id}
-                            pedido={pedido}
-                            isHistorial={true}
-                            cambiarEstado={cambiarEstado}
-                            enviarACocina={enviarACocina}
-                            imprimirVoucher={imprimirVoucher}
-                            estadoColor={estadoColor}
-                            estadoIcono={estadoIcono}
-                          />
-                        ))}
-                      </div>
+                      <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {pedidosHistorialPaginados.map((pedido) => (
+                            <CardPedido
+                              key={pedido.id}
+                              pedido={pedido}
+                              isHistorial={true}
+                              cambiarEstado={cambiarEstado}
+                              enviarACocina={enviarACocina}
+                              imprimirVoucher={imprimirVoucher}
+                              estadoColor={estadoColor}
+                              estadoIcono={estadoIcono}
+                            />
+                          ))}
+                        </div>
+
+                        {/* Paginación Historial */}
+                        {totalPaginasHistorial > 1 && (
+                          <div className="flex items-center justify-center gap-2 mt-4 bg-white border border-gray-100 p-3 rounded-2xl shadow-sm">
+                            <button
+                              type="button"
+                              onClick={() => setPaginaHistorial(prev => Math.max(prev - 1, 1))}
+                              disabled={paginaHistorial === 1}
+                              className="px-3 py-1.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 disabled:opacity-40 transition"
+                            >
+                              Anterior
+                            </button>
+                            <span className="text-xs font-bold text-gray-500">
+                              Página {paginaHistorial} de {totalPaginasHistorial}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setPaginaHistorial(prev => Math.min(prev + 1, totalPaginasHistorial))}
+                              disabled={paginaHistorial === totalPaginasHistorial}
+                              className="px-3 py-1.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 disabled:opacity-40 transition"
+                            >
+                              Siguiente
+                            </button>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 ) : (
