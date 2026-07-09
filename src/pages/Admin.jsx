@@ -27,21 +27,18 @@ function Barra({ label, valor, max, color = '#e63946', prefix = '', suffix = '' 
   )
 }
 
-const CATEGORIAS = ['Hamburguesas', 'Alitas', 'Pollo a la Brasa', 'Salchis Salchis', 'Especiales', 'Combos', 'Bebidas', 'Postres']
-
-const FORM_VACIO = { nombre: '', precio: '', categoria: 'Hamburguesas', descripcion: '', imagen_url: '', tag: '', disponible: true }
+const DEFAULT_CATEGORIAS = ['Hamburguesas', 'Alitas', 'Pollo a la Brasa', 'Salchis Salchis', 'Especiales', 'Combos', 'Bebidas', 'Postres']
+const FORM_VACIO = { nombre: '', precio: '', categoria: '', descripcion: '', imagen_url: '', tag: '', disponible: true, opciones: { tipo: 'estatico', titulo: '', max_seleccion: 1, items: [] } }
 
 function Admin() {
   const { usuario, datosUsuario, cerrarSesion } = useAuth()
   const navigate = useNavigate()
 
-  const [pedidos, setPedidos]     = useState([])
-  const [usuarios, setUsuarios]   = useState([])
-  const [resenas, setResenas]     = useState([])
+  const [pedidos, setPedidos] = useState([])
+  const [usuarios, setUsuarios] = useState([])
+  const [resenas, setResenas] = useState([])
   const [productos, setProductos] = useState([])
-  const [searchQuery, setSearchQuery] = useState('')
-  const [verHistorial, setVerHistorial] = useState(false)
-  const [config, setConfig]       = useState({
+  const [config, setConfig] = useState({
     nombre: 'La Esquina',
     telefono: '',
     direccion: '',
@@ -56,20 +53,29 @@ function Admin() {
   })
   const [tablaExiste, setTablaExiste] = useState(true)
 
-  const [vistaActiva, setVistaActiva]     = useState('dashboard')
-  const [cargando, setCargando]           = useState(true)
-  const [autorizado, setAutorizado]       = useState(false)
-  const [sidebarOpen, setSidebarOpen]     = useState(true)
+  const [vistaActiva, setVistaActiva] = useState('dashboard')
+  const [cargando, setCargando] = useState(true)
+  const [autorizado, setAutorizado] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
   const [periodoReporte, setPeriodoReporte] = useState('7')
 
   const [modalProducto, setModalProducto] = useState(false)
   const [productoEditando, setProductoEditando] = useState(null)
-  const [form, setForm]                   = useState(FORM_VACIO)
-  const [guardando, setGuardando]         = useState(false)
+  const [form, setForm] = useState(FORM_VACIO)
+  const [guardando, setGuardando] = useState(false)
   const [subiendoImagen, setSubiendoImagen] = useState(false)
   const [filtroCategoria, setFiltroCategoria] = useState('Todas')
   const [guardandoConfig, setGuardandoConfig] = useState(false)
-  const [configGuardada, setConfigGuardada]   = useState(false)
+  const [configGuardada, setConfigGuardada] = useState(false)
+
+  // Estados de Categorías CRUD e Inline
+  const [creandoCategoriaInline, setCreandoCategoriaInline] = useState(false)
+  const [modalCategoria, setModalCategoria] = useState(false)
+  const [categoriaEditando, setCategoriaEditando] = useState(null)
+  const [formCategoria, setFormCategoria] = useState({ nombre: '', descripcion: '', color: '#e63946' })
+  const [guardandoCategoria, setGuardandoCategoria] = useState(false)
+
+  const listaCategorias = categorias.length > 0 ? categorias.map(c => c.nombre) : DEFAULT_CATEGORIAS
 
   useEffect(() => {
     if (!usuario) { navigate('/login'); return }
@@ -91,24 +97,32 @@ function Admin() {
     const subProductos = supabase.channel('admin-productos')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'productos' }, fetchProductos)
       .subscribe()
+    const subCategorias = supabase.channel('admin-categorias')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'categorias' }, fetchCategorias)
+      .subscribe()
 
     return () => {
       supabase.removeChannel(subPedidos)
       supabase.removeChannel(subUsuarios)
       supabase.removeChannel(subProductos)
+      supabase.removeChannel(subCategorias)
     }
   }, [autorizado])
 
-  const fetchTodo = () => { fetchPedidos(); fetchUsuarios(); fetchResenas(); fetchProductos(); fetchConfig() }
+  const fetchTodo = () => { fetchPedidos(); fetchUsuarios(); fetchResenas(); fetchProductos(); fetchConfig(); fetchCategorias() }
 
   const fetchPedidos = async () => {
     const { data } = await supabase.from('pedidos').select('*')
     if (data) { setPedidos(data.sort((a, b) => new Date(a.creado_en) - new Date(b.creado_en))); setCargando(false) }
   }
-  const fetchUsuarios  = async () => { const { data } = await supabase.from('usuarios').select('*'); if (data) setUsuarios(data) }
-  const fetchResenas   = async () => { const { data } = await supabase.from('resenas').select('*'); if (data) setResenas(data) }
+  const fetchUsuarios = async () => { const { data } = await supabase.from('usuarios').select('*'); if (data) setUsuarios(data) }
+  const fetchResenas = async () => { const { data } = await supabase.from('resenas').select('*'); if (data) setResenas(data) }
   const fetchProductos = async () => { const { data } = await supabase.from('productos').select('*').order('creado_en', { ascending: false }); if (data) setProductos(data) }
-  const fetchConfig    = async () => {
+  const fetchCategorias = async () => {
+    const { data } = await supabase.from('categorias').select('*').order('id', { ascending: true })
+    if (data) setCategorias(data)
+  }
+  const fetchConfig = async () => {
     try {
       const { data, error } = await supabase.from('configuracion').select('*').maybeSingle()
       if (error) {
@@ -144,7 +158,7 @@ function Admin() {
       alert('Por favor permite los popups para poder imprimir el voucher de cocina.')
       return
     }
-    
+
     const productosVisibles = pedido.productos?.filter(p => p.id !== '_metadata') || []
     const meta = pedido.productos?.find(p => p.id === '_metadata') || {}
     const tipoEntrega = pedido.tipo_entrega || meta.tipo_entrega || 'recojo'
@@ -230,21 +244,67 @@ function Admin() {
     }
   }
 
-  const abrirModalNuevo = () => { setForm(FORM_VACIO); setProductoEditando(null); setModalProducto(true) }
-  const abrirModalEditar = (p) => { setForm({ nombre: p.nombre, precio: p.precio, categoria: p.categoria, descripcion: p.descripcion || '', imagen_url: p.imagen_url || '', tag: p.tag || '', disponible: p.disponible }); setProductoEditando(p); setModalProducto(true) }
+  const abrirModalNuevo = () => {
+    setForm({ ...FORM_VACIO, categoria: listaCategorias[0] || '' })
+    setProductoEditando(null)
+    setModalProducto(true)
+    setCreandoCategoriaInline(false)
+  }
+  const abrirModalEditar = (p) => {
+    setForm({
+      nombre: p.nombre,
+      precio: p.precio,
+      categoria: p.categoria,
+      descripcion: p.descripcion || '',
+      imagen_url: p.imagen_url || '',
+      tag: p.tag || '',
+      disponible: p.disponible,
+      opciones: p.opciones || { tipo: 'estatico', titulo: '', max_seleccion: 1, items: [] }
+    })
+    setProductoEditando(p)
+    setModalProducto(true)
+    setCreandoCategoriaInline(false)
+  }
 
   const guardarProducto = async () => {
-    if (!form.nombre || !form.precio) return
+    if (!form.nombre || !form.precio || !form.categoria) return
     setGuardando(true)
-    const payload = { ...form, precio: parseFloat(form.precio) }
-    if (productoEditando) {
-      await supabase.from('productos').update(payload).eq('id', productoEditando.id)
-    } else {
-      await supabase.from('productos').insert([payload])
+    try {
+      const categoriaFinal = form.categoria.trim()
+      const catExiste = categorias.some(c => c.nombre.toLowerCase() === categoriaFinal.toLowerCase())
+
+      if (categoriaFinal && !catExiste) {
+        await supabase
+          .from('categorias')
+          .insert([{ nombre: categoriaFinal, color: '#e63946', descripcion: 'Nueva sección de la carta' }])
+        await fetchCategorias()
+      }
+
+      const payload = {
+        nombre: form.nombre.trim(),
+        precio: parseFloat(form.precio),
+        categoria: categoriaFinal,
+        descripcion: form.descripcion || '',
+        imagen_url: form.imagen_url || '',
+        tag: form.tag || '',
+        disponible: form.disponible,
+        opciones: form.opciones
+      }
+
+      if (productoEditando) {
+        await supabase.from('productos').update(payload).eq('id', productoEditando.id)
+      } else {
+        await supabase.from('productos').insert([payload])
+      }
+      setModalProducto(false)
+      setCreandoCategoriaInline(false)
+      fetchProductos()
+    } catch (err) {
+      console.error(err)
+      alert('Error al guardar el producto')
+    } finally {
+      setGuardando(false)
     }
-    setGuardando(false)
-    setModalProducto(false)
-    fetchProductos()
   }
 
   const eliminarProducto = async (id) => {
@@ -256,6 +316,54 @@ function Admin() {
   const toggleDisponible = async (p) => {
     await supabase.from('productos').update({ disponible: !p.disponible }).eq('id', p.id)
     fetchProductos()
+  }
+
+  // Categorías CRUD Handlers
+  const abrirModalCategoriaNueva = () => {
+    setFormCategoria({ nombre: '', descripcion: '', color: '#e63946' })
+    setCategoriaEditando(null)
+    setModalCategoria(true)
+  }
+
+  const abrirModalCategoriaEditar = (cat) => {
+    setFormCategoria({ nombre: cat.nombre, descripcion: cat.descripcion || '', color: cat.color || '#e63946' })
+    setCategoriaEditando(cat)
+    setModalCategoria(true)
+  }
+
+  const guardarCategoria = async () => {
+    if (!formCategoria.nombre) return
+    setGuardandoCategoria(true)
+    try {
+      const payload = {
+        nombre: formCategoria.nombre.trim(),
+        descripcion: formCategoria.descripcion.trim(),
+        color: formCategoria.color.trim()
+      }
+      if (categoriaEditando) {
+        await supabase.from('categorias').update(payload).eq('id', categoriaEditando.id)
+      } else {
+        await supabase.from('categorias').insert([payload])
+      }
+      setModalCategoria(false)
+      fetchCategorias()
+    } catch (err) {
+      console.error(err)
+      alert('Error al guardar la categoría')
+    } finally {
+      setGuardandoCategoria(false)
+    }
+  }
+
+  const eliminarCategoria = async (cat) => {
+    if (!confirm(`¿Seguro que quieres eliminar la categoría "${cat.nombre}"? Esto no eliminará los productos, pero se quedarán sin categoría asignada.`)) return
+    try {
+      await supabase.from('categorias').delete().eq('id', cat.id)
+      fetchCategorias()
+    } catch (err) {
+      console.error(err)
+      alert('Error al eliminar la categoría')
+    }
   }
 
   const guardarConfig = async () => {
@@ -331,12 +439,13 @@ function Admin() {
   const estadoIcono = { pendiente: <FiClock className="text-yellow-500" />, preparando: <FiShoppingBag className="text-blue-500" />, listo: <FiCheckCircle className="text-green-500" />, entregado: <FiTruck className="text-gray-500" />, cancelado: <FiXCircle className="text-red-500" /> }
 
   const navItems = [
-    { id: 'dashboard',  label: 'Dashboard',   icon: <FiHome />      },
-    { id: 'reportes',   label: 'Reportes',    icon: <FiBarChart2 /> },
-    { id: 'pedidos',    label: 'Pedidos',     icon: <FiList />      },
-    { id: 'productos',  label: 'Productos',   icon: <FiPackage />   },
-    { id: 'usuarios',   label: 'Usuarios',    icon: <FiUsers />     },
-    { id: 'config',     label: 'Configuracion', icon: <FiSettings /> },
+    { id: 'dashboard', label: 'Dashboard', icon: <FiHome /> },
+    { id: 'reportes', label: 'Reportes', icon: <FiBarChart2 /> },
+    { id: 'pedidos', label: 'Pedidos', icon: <FiList /> },
+    { id: 'productos', label: 'Productos', icon: <FiPackage /> },
+    { id: 'categorias', label: 'Categorías', icon: <FiMenu /> },
+    { id: 'usuarios', label: 'Usuarios', icon: <FiUsers /> },
+    { id: 'config', label: 'Configuracion', icon: <FiSettings /> },
   ]
 
   const productosFiltrados = filtroCategoria === 'Todas' ? productos : productos.filter(p => p.categoria === filtroCategoria)
@@ -358,12 +467,12 @@ function Admin() {
 
       {modalProducto && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <h3 className="text-lg font-bold text-gray-900">{productoEditando ? 'Editar producto' : 'Nuevo producto'}</h3>
               <button onClick={() => setModalProducto(false)} className="text-gray-400 hover:text-gray-600 transition"><FiX size={20} /></button>
             </div>
-            <div className="px-6 py-5 flex flex-col gap-4">
+            <div className="px-6 py-5 flex flex-col gap-4 max-h-[60vh] overflow-y-auto">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1 block">Nombre</label>
@@ -376,10 +485,42 @@ function Admin() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1 block">Categoría</label>
-                  <select value={form.categoria} onChange={e => setForm({ ...form, categoria: e.target.value })} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-red-500 transition bg-white">
-                    {CATEGORIAS.map(c => <option key={c}>{c}</option>)}
-                  </select>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wide block">Categoría</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextState = !creandoCategoriaInline
+                        setCreandoCategoriaInline(nextState)
+                        if (nextState) {
+                          setForm({ ...form, categoria: '' })
+                        } else {
+                          setForm({ ...form, categoria: listaCategorias[0] || '' })
+                        }
+                      }}
+                      className="text-[10px] text-red-600 hover:text-red-500 font-bold transition"
+                    >
+                      {creandoCategoriaInline ? '✕ Seleccionar' : '+ Nueva'}
+                    </button>
+                  </div>
+                  {creandoCategoriaInline ? (
+                    <input
+                      type="text"
+                      value={form.categoria}
+                      onChange={e => setForm({ ...form, categoria: e.target.value })}
+                      placeholder="Nombre de la categoría"
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-red-500 transition"
+                      required
+                    />
+                  ) : (
+                    <select
+                      value={form.categoria}
+                      onChange={e => setForm({ ...form, categoria: e.target.value })}
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-red-500 transition bg-white"
+                    >
+                      {listaCategorias.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  )}
                 </div>
                 <div>
                   <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1 block">Tag</label>
@@ -440,6 +581,164 @@ function Admin() {
                   />
                 </div>
               </div>
+
+              {/* Opciones y Variaciones */}
+              <div className="border-t border-gray-150 pt-4 flex flex-col gap-3">
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 block">Configuración de Opciones</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { id: 'estatico', label: 'Estático' },
+                      { id: 'variacion', label: 'Variación (Tamaños)' },
+                      { id: 'sabores', label: 'Sabores (Multiselect)' }
+                    ].map(tipo => (
+                      <button
+                        key={tipo.id}
+                        type="button"
+                        onClick={() => {
+                          const defaultOpciones = {
+                            tipo: tipo.id,
+                            titulo: tipo.id === 'variacion' ? 'Elige el tamaño' : tipo.id === 'sabores' ? 'Elige tus sabores' : '',
+                            max_seleccion: tipo.id === 'sabores' ? 4 : 1,
+                            items: tipo.id === 'variacion'
+                              ? [{ nombre: 'Personal', extra: 0 }, { nombre: 'Grande', extra: 5 }]
+                              : tipo.id === 'sabores'
+                                ? [{ nombre: 'BBQ' }, { nombre: 'Acevichadas' }, { nombre: 'Maracuyá' }, { nombre: 'Teriyaki' }]
+                                : []
+                          }
+                          setForm({ ...form, opciones: defaultOpciones })
+                        }}
+                        className={`py-2 px-3 text-xs font-bold rounded-xl border text-center transition ${form.opciones?.tipo === tipo.id
+                            ? 'bg-red-500 text-white border-red-500 shadow-sm'
+                            : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                          }`}
+                      >
+                        {tipo.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {form.opciones?.tipo !== 'estatico' && form.opciones?.tipo && (
+                  <div className="bg-gray-50 border border-gray-150 rounded-2xl p-4 flex flex-col gap-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1 block">Título de la Pregunta</label>
+                        <input
+                          type="text"
+                          value={form.opciones.titulo || ''}
+                          onChange={e => setForm({
+                            ...form,
+                            opciones: { ...form.opciones, titulo: e.target.value }
+                          })}
+                          placeholder="Ej: Elige el tamaño"
+                          className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-red-500 transition"
+                        />
+                      </div>
+                      {form.opciones.tipo === 'sabores' && (
+                        <div>
+                          <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1 block">Límite de selección</label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={form.opciones.max_seleccion || 1}
+                            onChange={e => setForm({
+                              ...form,
+                              opciones: { ...form.opciones, max_seleccion: parseInt(e.target.value) || 1 }
+                            })}
+                            className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-red-500 transition"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between items-center mb-1.5 flex-wrap gap-1">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide block">Opciones disponibles</label>
+                        <div className="flex gap-2">
+                          {form.opciones.tipo === 'sabores' && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const presetItems = [
+                                  { nombre: 'BBQ' },
+                                  { nombre: 'Acevichadas' },
+                                  { nombre: 'Maracuyá' },
+                                  { nombre: 'Teriyaki' },
+                                  { nombre: 'Honey Mustard' },
+                                  { nombre: 'Mozzarella' }
+                                ]
+                                setForm({
+                                  ...form,
+                                  opciones: { ...form.opciones, items: presetItems }
+                                })
+                              }}
+                              className="text-[10px] bg-red-50 text-red-600 hover:bg-red-100 font-bold px-2 py-0.5 rounded transition"
+                            >
+                              ⚡ Cargar Sabores Alitas
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newItems = [...(form.opciones.items || []), { nombre: '', extra: 0 }]
+                              setForm({
+                                ...form,
+                                opciones: { ...form.opciones, items: newItems }
+                              })
+                            }}
+                            className="text-[10px] text-red-600 hover:text-red-500 font-bold transition"
+                          >
+                            + Agregar Opción
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-2 max-h-40 overflow-y-auto">
+                        {form.opciones.items?.map((item, idx) => (
+                          <div key={idx} className="flex gap-2 items-center">
+                            <input
+                              type="text"
+                              value={item.nombre || ''}
+                              onChange={e => {
+                                const newItems = [...form.opciones.items]
+                                newItems[idx].nombre = e.target.value
+                                setForm({ ...form, opciones: { ...form.opciones, items: newItems } })
+                              }}
+                              placeholder="Nombre (Ej: Regular / BBQ)"
+                              className="flex-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-red-500 transition"
+                            />
+                            {form.opciones.tipo === 'variacion' && (
+                              <input
+                                type="number"
+                                step="0.1"
+                                placeholder="Precio extra (S/)"
+                                value={item.extra || 0}
+                                onChange={e => {
+                                  const newItems = [...form.opciones.items]
+                                  newItems[idx].extra = parseFloat(e.target.value) || 0
+                                  setForm({ ...form, opciones: { ...form.opciones, items: newItems } })
+                                }}
+                                className="w-24 bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-red-500 transition"
+                              />
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newItems = form.opciones.items.filter((_, i) => i !== idx)
+                                setForm({ ...form, opciones: { ...form.opciones, items: newItems } })
+                              }}
+                              className="text-gray-450 hover:text-red-500 transition p-1"
+                            >
+                              <FiTrash2 size={13} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="flex items-center gap-3">
                 <button onClick={() => setForm({ ...form, disponible: !form.disponible })} className={`text-2xl transition ${form.disponible ? 'text-green-500' : 'text-gray-300'}`}>
                   {form.disponible ? <FiToggleRight /> : <FiToggleLeft />}
@@ -452,6 +751,41 @@ function Admin() {
               <button onClick={guardarProducto} disabled={guardando || !form.nombre || !form.precio} className="px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-red-600 hover:bg-red-700 transition disabled:opacity-50 flex items-center gap-2">
                 {guardando ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <FiSave size={14} />}
                 {productoEditando ? 'Guardar cambios' : 'Agregar producto'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {modalCategoria && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h3 className="text-lg font-bold text-gray-900">{categoriaEditando ? 'Editar categoría' : 'Nueva categoría'}</h3>
+              <button onClick={() => setModalCategoria(false)} className="text-gray-400 hover:text-gray-600 transition"><FiX size={20} /></button>
+            </div>
+            <div className="px-6 py-5 flex flex-col gap-4">
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1 block">Nombre de la categoría</label>
+                <input value={formCategoria.nombre} onChange={e => setFormCategoria({ ...formCategoria, nombre: e.target.value })} placeholder="Ej: Hamburguesas" className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-red-500 transition" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1 block">Descripción (Encabezado)</label>
+                <textarea value={formCategoria.descripcion} onChange={e => setFormCategoria({ ...formCategoria, descripcion: e.target.value })} placeholder="Ej: Artesanales · Jugosas · Irresistibles" rows={2} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-red-500 transition resize-none" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1 block">Color (Hexadecimal)</label>
+                <div className="flex gap-3 items-center">
+                  <input type="text" value={formCategoria.color} onChange={e => setFormCategoria({ ...formCategoria, color: e.target.value })} placeholder="#e63946" className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-red-500 transition" />
+                  <input type="color" value={formCategoria.color} onChange={e => setFormCategoria({ ...formCategoria, color: e.target.value })} className="w-12 h-10 border border-gray-200 rounded-xl cursor-pointer bg-white" />
+                </div>
+              </div>
+            </div>
+            <div className="px-6 py-4 bg-gray-50 rounded-b-2xl border-t border-gray-100 flex items-center justify-end gap-3">
+              <button onClick={() => setModalCategoria(false)} className="px-4 py-2 text-sm font-bold text-gray-500 hover:bg-gray-100 rounded-xl transition">Cancelar</button>
+              <button onClick={guardarCategoria} disabled={guardandoCategoria} className="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-xl text-sm font-bold transition disabled:opacity-50 flex items-center gap-2">
+                {guardandoCategoria && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                {categoriaEditando ? 'Guardar cambios' : 'Agregar categoría'}
               </button>
             </div>
           </div>
@@ -483,11 +817,10 @@ function Admin() {
         <nav className="flex-1 px-2 py-4 flex flex-col gap-1">
           {navItems.map((item) => (
             <button key={item.id} onClick={() => setVistaActiva(item.id)}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition text-sm font-semibold w-full ${
-                vistaActiva === item.id
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition text-sm font-semibold w-full ${vistaActiva === item.id
                   ? 'bg-red-600 text-white shadow-lg shadow-red-600/20'
                   : 'text-gray-400 hover:bg-gray-800 hover:text-white'
-              }`}>
+                }`}>
               <span className="text-lg flex-shrink-0">{item.icon}</span>
               {sidebarOpen && <span>{item.label}</span>}
             </button>
@@ -526,10 +859,10 @@ function Admin() {
             <div className="flex flex-col gap-6">
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
-                  { label: 'Ventas hoy',  valor: `S/ ${totalHoy.toFixed(2)}`, icon: <FiDollarSign size={20} />, light: 'bg-red-50 text-red-600',    border: 'border-red-100'    },
-                  { label: 'Pedidos hoy', valor: pedidosHoy.length,            icon: <FiShoppingBag size={20} />,light: 'bg-blue-50 text-blue-600',   border: 'border-blue-100'   },
-                  { label: 'Pendientes',  valor: pedidosPendientes,             icon: <FiClock size={20} />,      light: 'bg-yellow-50 text-yellow-600',border: 'border-yellow-100' },
-                  { label: 'Preparando',  valor: pedidosPreparando,             icon: <FiList size={20} />,       light: 'bg-green-50 text-green-600',  border: 'border-green-100'  },
+                  { label: 'Ventas hoy', valor: `S/ ${totalHoy.toFixed(2)}`, icon: <FiDollarSign size={20} />, light: 'bg-red-50 text-red-600', border: 'border-red-100' },
+                  { label: 'Pedidos hoy', valor: pedidosHoy.length, icon: <FiShoppingBag size={20} />, light: 'bg-blue-50 text-blue-600', border: 'border-blue-100' },
+                  { label: 'Pendientes', valor: pedidosPendientes, icon: <FiClock size={20} />, light: 'bg-yellow-50 text-yellow-600', border: 'border-yellow-100' },
+                  { label: 'Preparando', valor: pedidosPreparando, icon: <FiList size={20} />, light: 'bg-green-50 text-green-600', border: 'border-green-100' },
                 ].map((stat) => (
                   <div key={stat.label} className={`bg-white rounded-2xl shadow-sm border ${stat.border} p-5 flex items-center gap-4 hover:shadow-md transition`}>
                     <div className={`${stat.light} p-3 rounded-xl`}>{stat.icon}</div>
@@ -546,12 +879,12 @@ function Admin() {
                   <h3 className="text-sm font-bold text-gray-900 mb-4">Resumen general</h3>
                   <div className="flex flex-col gap-2">
                     {[
-                      { label: 'Total de pedidos',     valor: pedidos.length },
-                      { label: 'Total de ventas',      valor: `S/ ${totalGeneral.toFixed(2)}` },
+                      { label: 'Total de pedidos', valor: pedidos.length },
+                      { label: 'Total de ventas', valor: `S/ ${totalGeneral.toFixed(2)}` },
                       { label: 'Usuarios registrados', valor: usuarios.length },
-                      { label: 'Productos en carta',   valor: productos.length },
-                      { label: 'Pedidos entregados',   valor: pedidos.filter(p => p.estado === 'entregado').length },
-                      { label: 'Pedidos cancelados',   valor: pedidos.filter(p => p.estado === 'cancelado').length },
+                      { label: 'Productos en carta', valor: productos.length },
+                      { label: 'Pedidos entregados', valor: pedidos.filter(p => p.estado === 'entregado').length },
+                      { label: 'Pedidos cancelados', valor: pedidos.filter(p => p.estado === 'cancelado').length },
                     ].map((item) => (
                       <div key={item.label} className="flex justify-between items-center py-2.5 border-b border-gray-50 last:border-0">
                         <span className="text-sm text-gray-500">{item.label}</span>
@@ -699,7 +1032,7 @@ function Admin() {
                     <div key={r.id} className="bg-gray-50 rounded-xl p-3 border border-gray-100 mb-2">
                       <div className="flex items-center justify-between mb-1">
                         <div className="flex gap-0.5">
-                          {[1,2,3,4,5].map(s => <FiStar key={s} size={11} className={s <= r.calificacion ? 'text-yellow-400' : 'text-gray-300'} style={{ fill: s <= r.calificacion ? '#facc15' : 'none' }} />)}
+                          {[1, 2, 3, 4, 5].map(s => <FiStar key={s} size={11} className={s <= r.calificacion ? 'text-yellow-400' : 'text-gray-300'} style={{ fill: s <= r.calificacion ? '#facc15' : 'none' }} />)}
                         </div>
                         <p className="text-xs text-gray-400">{r.creado_en ? new Date(r.creado_en).toLocaleDateString('es-PE') : '—'}</p>
                       </div>
@@ -717,12 +1050,12 @@ function Admin() {
               const idMatch = pedido.id.toLowerCase().includes(query)
               const emailMatch = (pedido.usuario_email || pedido.usuarioEmail || '').toLowerCase().includes(query)
               const tipoMatch = (pedido.tipo_entrega || '').toLowerCase().includes(query)
-              
+
               const meta = pedido.productos?.find(p => p.id === '_metadata') || {}
               const nombreMatch = (meta.nombre || '').toLowerCase().includes(query)
               const telfMatch = (meta.telefono || '').toLowerCase().includes(query)
               const dirMatch = (meta.direccion || '').toLowerCase().includes(query)
-              
+
               return idMatch || emailMatch || tipoMatch || nombreMatch || telfMatch || dirMatch
             })
 
@@ -740,7 +1073,7 @@ function Admin() {
                     <h2 className="text-lg font-bold text-gray-900">Control de Pedidos</h2>
                     <p className="text-xs text-gray-400 mt-0.5">Gestión de cocina y caja en tiempo real</p>
                   </div>
-                  
+
                   <div className="flex flex-1 max-w-md items-center gap-2">
                     <div className="relative flex-1">
                       <input
@@ -754,15 +1087,14 @@ function Admin() {
                         <FiSearch size={15} />
                       </span>
                     </div>
-                    
+
                     <button
                       type="button"
                       onClick={() => setVerHistorial(!verHistorial)}
-                      className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex-shrink-0 flex items-center gap-2 ${
-                        verHistorial 
-                          ? 'bg-gray-950 text-white shadow-md' 
+                      className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex-shrink-0 flex items-center gap-2 ${verHistorial
+                          ? 'bg-gray-950 text-white shadow-md'
                           : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
-                      }`}
+                        }`}
                     >
                       <FiList size={14} />
                       {verHistorial ? 'Ver Tablero' : 'Historial'}
@@ -803,7 +1135,7 @@ function Admin() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-                    
+
                     <div className="bg-yellow-500/5 rounded-2xl border border-yellow-500/10 p-4 flex flex-col gap-4">
                       <div className="flex justify-between items-center border-b border-yellow-500/10 pb-2">
                         <span className="text-sm font-black text-yellow-600 uppercase tracking-wide">Pendientes</span>
@@ -901,7 +1233,7 @@ function Admin() {
               </div>
 
               <div className="flex gap-2 overflow-x-auto pb-1">
-                {['Todas', ...CATEGORIAS].map(cat => (
+                {['Todas', ...listaCategorias].map(cat => (
                   <button key={cat} onClick={() => setFiltroCategoria(cat)}
                     className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition ${filtroCategoria === cat ? 'bg-red-600 text-white shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}`}>
                     {cat}
@@ -1005,6 +1337,59 @@ function Admin() {
             </div>
           )}
 
+          {vistaActiva === 'categorias' && (
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">Gestión de categorías</h2>
+                  <p className="text-xs text-gray-400">{categorias.length} categorías registradas</p>
+                </div>
+                <button onClick={abrirModalCategoriaNueva} className="flex items-center gap-2 bg-red-600 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-red-700 transition shadow-sm">
+                  <FiPlus size={16} /> Nueva categoría
+                </button>
+              </div>
+
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-100">
+                    <tr>
+                      <th className="text-left text-xs font-bold text-gray-500 px-4 py-3">Color</th>
+                      <th className="text-left text-xs font-bold text-gray-500 px-4 py-3">Nombre</th>
+                      <th className="text-left text-xs font-bold text-gray-500 px-4 py-3">Descripción (Encabezado)</th>
+                      <th className="text-right text-xs font-bold text-gray-500 px-4 py-3">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {categorias.map((cat) => (
+                      <tr key={cat.id} className="hover:bg-gray-50 transition">
+                        <td className="px-4 py-3">
+                          <div className="w-6 h-6 rounded-full border border-gray-200 shadow-sm" style={{ backgroundColor: cat.color || '#e63946' }} />
+                        </td>
+                        <td className="px-4 py-3 text-sm font-bold text-gray-900">{cat.nombre}</td>
+                        <td className="px-4 py-3 text-xs text-gray-500 max-w-xs truncate">{cat.descripcion || 'Sin descripción'}</td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button onClick={() => abrirModalCategoriaEditar(cat)} className="p-2 text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition">
+                              <FiEdit2 size={14} />
+                            </button>
+                            <button onClick={() => eliminarCategoria(cat)} className="p-2 text-red-600 bg-red-50 rounded-xl hover:bg-red-100 transition">
+                              <FiTrash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {categorias.length === 0 && (
+                      <tr>
+                        <td colSpan="4" className="text-center py-6 text-sm text-gray-400">No hay categorías registradas en la base de datos. Se están usando las categorías por defecto.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {vistaActiva === 'config' && (
             <div className="flex flex-col gap-6 max-w-2xl">
               <div>
@@ -1022,7 +1407,7 @@ function Admin() {
                     Copia el siguiente script SQL, ve al apartado <b>SQL Editor</b> en tu consola de Supabase, pégalo y presiona el botón <b>Run</b>:
                   </p>
                   <pre className="bg-gray-900 text-green-400 p-4 rounded-xl text-[11px] overflow-x-auto mb-4 font-mono select-all">
-{`-- Crear tabla de configuración unificada y habilitar RLS
+                    {`-- Crear tabla de configuración unificada y habilitar RLS
 CREATE TABLE IF NOT EXISTS public.configuracion (
     id text PRIMARY KEY DEFAULT 'la_esquina',
     nombre text,
@@ -1095,20 +1480,20 @@ ALTER TABLE public.pedidos ADD COLUMN IF NOT EXISTS pago_estado text DEFAULT 'pe
                         <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 block">Costo de Envío Fijo (S/)</label>
                         <input type="number" step="0.1" min="0" disabled={config.delivery_coordinar}
                           value={config.delivery_costo}
-                          onChange={(e) => setConfig({...config, delivery_costo: parseFloat(e.target.value) || 0})}
+                          onChange={(e) => setConfig({ ...config, delivery_costo: parseFloat(e.target.value) || 0 })}
                           className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-red-500 transition disabled:bg-gray-100" />
                       </div>
                       <div>
                         <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 block">Delivery gratis a partir de (S/)</label>
                         <input type="number" step="1" min="0"
                           value={config.delivery_gratis_desde}
-                          onChange={(e) => setConfig({...config, delivery_gratis_desde: parseFloat(e.target.value) || 0})}
+                          onChange={(e) => setConfig({ ...config, delivery_gratis_desde: parseFloat(e.target.value) || 0 })}
                           className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-red-500 transition" />
                       </div>
                     </div>
                     <label className="flex items-center gap-2 mt-1 cursor-pointer">
                       <input type="checkbox" checked={config.delivery_coordinar}
-                        onChange={(e) => setConfig({...config, delivery_coordinar: e.target.checked})}
+                        onChange={(e) => setConfig({ ...config, delivery_coordinar: e.target.checked })}
                         className="rounded text-red-600 focus:ring-red-500" />
                       <span className="text-xs text-gray-600 font-medium">Coordinar costo de envío con el motorizado (precio variable)</span>
                     </label>
@@ -1119,7 +1504,7 @@ ALTER TABLE public.pedidos ADD COLUMN IF NOT EXISTS pago_estado text DEFAULT 'pe
                     <h3 className="text-sm font-bold text-gray-900 border-b border-gray-100 pb-2">Pasarela de Pagos (Mercado Pago)</h3>
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input type="checkbox" checked={config.mercado_pago_activo}
-                        onChange={(e) => setConfig({...config, mercado_pago_activo: e.target.checked})}
+                        onChange={(e) => setConfig({ ...config, mercado_pago_activo: e.target.checked })}
                         className="rounded text-red-600 focus:ring-red-500" />
                       <span className="text-xs text-gray-855 font-bold">Activar Mercado Pago para compras en línea</span>
                     </label>
@@ -1130,14 +1515,14 @@ ALTER TABLE public.pedidos ADD COLUMN IF NOT EXISTS pago_estado text DEFAULT 'pe
                           <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1 block">Mercado Pago Public Key (Clave Pública)</label>
                           <input type="text" placeholder="TEST-a1b2..."
                             value={config.mercado_pago_public_key}
-                            onChange={(e) => setConfig({...config, mercado_pago_public_key: e.target.value})}
+                            onChange={(e) => setConfig({ ...config, mercado_pago_public_key: e.target.value })}
                             className="w-full bg-white border border-gray-200 rounded-xl px-3.5 py-2 text-sm outline-none focus:border-red-500 transition" />
                         </div>
                         <div>
                           <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1 block">Mercado Pago Access Token (Token de Acceso)</label>
                           <input type="password" placeholder="TEST-12345..."
                             value={config.mercado_pago_access_token}
-                            onChange={(e) => setConfig({...config, mercado_pago_access_token: e.target.value})}
+                            onChange={(e) => setConfig({ ...config, mercado_pago_access_token: e.target.value })}
                             className="w-full bg-white border border-gray-200 rounded-xl px-3.5 py-2 text-sm outline-none focus:border-red-500 transition" />
                         </div>
                         <p className="text-[10px] text-gray-400 leading-normal">
@@ -1220,7 +1605,7 @@ function CardPedido({ pedido, isHistorial = false, cambiarEstado, enviarACocina,
         {tipoEntrega === 'delivery' && direccion && <p className="truncate"><span className="font-bold text-gray-700">Dirección:</span> {direccion}</p>}
         {telefono && <p><span className="font-bold text-gray-700">Teléfono:</span> {telefono}</p>}
         <p>
-          <span className="font-bold text-gray-700">Pago:</span> <span className="capitalize font-semibold">{metodoPago === 'efectivo' ? 'Efectivo/Yape' : 'Pago Online'}</span> 
+          <span className="font-bold text-gray-700">Pago:</span> <span className="capitalize font-semibold">{metodoPago === 'efectivo' ? 'Efectivo/Yape' : 'Pago Online'}</span>
           <span className={`ml-2 px-1.5 py-0.5 rounded-full font-bold text-[9px] ${pagoEstado === 'aprobado' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
             {pagoEstado === 'aprobado' ? 'Pagado' : 'Pendiente'}
           </span>

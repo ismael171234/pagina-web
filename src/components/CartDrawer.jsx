@@ -362,7 +362,15 @@ export default function CartDrawer() {
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-black text-white truncate leading-tight uppercase">{item.nombre}</p>
                       {item.opcion && (
-                        <p className="text-[10px] text-gray-400 font-bold mt-0.5">Tamaño: {item.opcion}</p>
+                        <p className="text-[10px] text-gray-400 font-bold mt-0.5">
+                          {item.nombre?.toLowerCase().includes('alita') || 
+                           item.nombre?.toLowerCase().includes('ronda') || 
+                           item.opcion?.toLowerCase().includes('bbq') || 
+                           item.opcion?.toLowerCase().includes('acevichada')
+                            ? 'Sabores' 
+                            : 'Tamaño'}
+                          : {item.opcion}
+                        </p>
                       )}
                       {item.complemento && (
                         <p className="text-[10px] text-red-400 font-bold mt-0.5 truncate">
