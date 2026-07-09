@@ -15,9 +15,6 @@ import WhatsAppButton from './components/WhatsAppButton'
 import CartDrawer from './components/CartDrawer'
 import TrabajaConNosotros from './pages/TrabajaConNosotros'
 
-
-
-
 function Layout() {
   const location = useLocation()
   const hideNav = ['/login', '/admin', '/reset-password'].includes(location.pathname)
@@ -27,16 +24,16 @@ function Layout() {
       {!hideNav && <Navbar />}
       <CartDrawer />
       <Routes>
-        <Route path="/"              element={<Home />} />
-        <Route path="/menu"          element={<Menu />} />
-        <Route path="/orders"        element={<Orders />} />
-        <Route path="/login"         element={<Login />} />
-        <Route path="/admin"         element={<Admin />} />
+        <Route path="/" element={<Home />} />
+        <Route path="/menu" element={<Menu />} />
+        <Route path="/orders" element={<Orders />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/admin" element={<Admin />} />
         <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/historia"      element={<Historia />} />
-        <Route path="/contactanos"   element={<Contactanos />} />
+        <Route path="/historia" element={<Historia />} />
+        <Route path="/contactanos" element={<Contactanos />} />
         <Route path="/trabaja-con-nosotros" element={<TrabajaConNosotros />} />
-        <Route path="*"              element={<NotFound />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
       {!hideNav && <Footer />}
       {!hideNav && <Chatbot />}
