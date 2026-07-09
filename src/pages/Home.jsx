@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useState, useEffect, useRef } from 'react'
-import { CARTA } from './Menu'
+import { supabase } from '../supabase/supabaseClient'
 import ProductConfiguratorModal from '../components/ProductConfiguratorModal'
 
 // Imágenes
@@ -69,27 +69,141 @@ const POPULARES = [
   { nombre: 'Brownie c/ Helado',     precio: 'S/ 12.90', imagen: brownie       },
 ]
 
-// ── Componente ProductCard ──────────────────────────────────
-// Helper para obtener el producto completo con todas sus opciones y complementos de la CARTA centralizada
-const getFullProduct = (nombreSimplified) => {
-  const clean = (s) => s.toLowerCase()
-    .replace(/á/g, 'a').replace(/é/g, 'e').replace(/í/g, 'i').replace(/ó/g, 'o').replace(/ú/g, 'u')
-    .replace(/[^a-z0-9]/g, '')
-  
-  const searchName = clean(nombreSimplified)
-  
-  if (searchName.includes('hamburguesaclasica')) return { ...CARTA.Hamburguesas.productos.find(p => p.id === 1), color: CARTA.Hamburguesas.color }
-  if (searchName.includes('hamburguesaroyal')) return { ...CARTA.Hamburguesas.productos.find(p => p.id === 3), color: CARTA.Hamburguesas.color }
-  if (searchName.includes('browniechelado') || searchName.includes('brownieconhelado')) return { ...CARTA.Postres.productos.find(p => p.id === 37), color: CARTA.Postres.color }
-  
-  for (const catName in CARTA) {
-    const prod = CARTA[catName].productos.find(p => {
-      const cleanP = clean(p.nombre)
-      return cleanP.includes(searchName) || searchName.includes(cleanP)
-    })
-    if (prod) return { ...prod, color: CARTA[catName].color }
+// Helper: opciones de tamaño y adicionales genéricas
+const AD = [
+  { nombre: 'Anticucho 1 palito',   extra: 7.00  },
+  { nombre: 'Alitas 4 unidades',    extra: 9.00  },
+  { nombre: 'Carne de hamburguesa', extra: 6.00  },
+  { nombre: 'Chorizo',              extra: 3.50  },
+  { nombre: 'Huevo frito',          extra: 1.50  },
+  { nombre: 'Mollejitas',           extra: 8.00  },
+  { nombre: 'Papas fritas',         extra: 10.00 },
+  { nombre: 'Queso cheddar',        extra: 1.50  },
+  { nombre: 'Salchicha',            extra: 2.50  },
+  { nombre: 'Tocino',               extra: 2.00  },
+  { nombre: 'Pollo a la brasa 1/8', extra: 7.00  },
+  { nombre: 'Pollo a la brasa 1/4', extra: 14.00 },
+]
+
+const complementos = { titulo: 'Adicionales', subtitulo: 'Opcional', items: AD }
+
+const opTamano = (img) => ({
+  titulo: 'Elige el tamaño', subtitulo: 'Elige 1 opción',
+  items: [{ nombre: 'Personal', imagen: img }, { nombre: 'Grande', imagen: img }],
+})
+const opPorcion = (img) => ({
+  titulo: 'Elige la porción', subtitulo: 'Elige 1 opción',
+  items: [{ nombre: '6 unidades', imagen: img }, { nombre: '12 unidades', imagen: img }],
+})
+const opAcomp = () => ({
+  titulo: 'Elige tu acompañamiento', subtitulo: 'Elige 1 opción',
+  items: [{ nombre: 'Papas fritas' }, { nombre: 'Arroz chaufa' }, { nombre: 'Ensalada' }],
+})
+const opGaseosa = (cocacola, inkacola, fanta, sprint) => ({
+  titulo: 'Elige tu gaseosa', subtitulo: 'Elige 1 opción',
+  items: [
+    { nombre: 'Coca Cola', imagen: cocacola },
+    { nombre: 'Inca Kola', imagen: inkacola },
+    { nombre: 'Fanta',     imagen: fanta    },
+    { nombre: 'Sprint',    imagen: sprint   },
+  ],
+})
+
+const getOptionsAndComplements = (p, imagen) => {
+  const nombre = p.nombre || ''
+  const categoria = p.categoria || ''
+
+  if (nombre.includes('Ronda')) {
+    return {
+      opciones: {
+        titulo: 'Elige tus 4 sabores',
+        subtitulo: 'Hasta 4 opciones',
+        items: [
+          { nombre: 'BBQ' },
+          { nombre: 'Acevichadas' },
+          { nombre: 'Maracuya' },
+          { nombre: 'Teriyaki' },
+          { nombre: 'Honey Mustard' },
+          { nombre: 'Mozarella' }
+        ]
+      },
+      complementos
+    }
   }
-  return null
+
+  if (nombre === 'Anticuchos') {
+    return {
+      opciones: {
+        titulo: 'Elige la porción',
+        subtitulo: 'Elige 1 opción',
+        items: [{ nombre: '2 palitos' }, { nombre: '4 palitos' }]
+      },
+      complementos
+    }
+  }
+
+  if (nombre === 'Brownie con Helado' || nombre.includes('Brownie')) {
+    return {
+      opciones: {
+        titulo: 'Elige el sabor',
+        subtitulo: 'Elige 1 opción',
+        items: [{ nombre: 'Vainilla' }, { nombre: 'Chocolate' }, { nombre: 'Fresa' }]
+      }
+    }
+  }
+
+  switch (categoria) {
+    case 'Hamburguesas':
+      return { opciones: opTamano(imagen), complementos }
+    case 'Alitas':
+      return { opciones: opPorcion(imagen), complementos }
+    case 'Pollo a la Brasa':
+      return { opciones: opAcomp(), complementos }
+    case 'Salchis Salchis':
+      return {
+        opciones: {
+          titulo: 'Elige el tamaño',
+          subtitulo: 'Elige 1 opción',
+          items: [{ nombre: 'Regular' }, { nombre: 'Grande' }]
+        },
+        complementos
+      }
+    case 'Especiales':
+      return {
+        opciones: {
+          titulo: 'Elige la porción/tamaño',
+          subtitulo: 'Elige 1 opción',
+          items: [{ nombre: 'Regular' }, { nombre: 'Grande' }]
+        },
+        complementos
+      }
+    case 'Combos':
+      return { opciones: opGaseosa(cocacola, inkacola, fanta, sprint), complementos }
+    case 'Bebidas':
+      return {
+        opciones: {
+          titulo: 'Elige el tamaño',
+          subtitulo: 'Elige 1 opción',
+          items: [{ nombre: 'Personal 500ml', imagen }, { nombre: 'Familiar 1.5L', imagen }]
+        }
+      }
+    case 'Postres':
+      return {
+        opciones: {
+          titulo: 'Elige el tamaño',
+          subtitulo: 'Elige 1 opción',
+          items: [{ nombre: 'Personal', imagen }, { nombre: 'Grande', imagen }]
+        }
+      }
+    default:
+      return {
+        opciones: {
+          titulo: 'Elige una opción',
+          subtitulo: 'Elige 1 opción',
+          items: [{ nombre: 'Regular' }]
+        }
+      }
+  }
 }
 
 // ── Componente ProductCard ──────────────────────────────────
@@ -264,6 +378,67 @@ function Home() {
   const navigate = useNavigate()
   const [selectedProduct, setSelectedProduct] = useState(null)
   const [activeColor, setActiveColor] = useState('#e63946')
+  const [todosProductos, setTodosProductos] = useState([])
+  const [categoriasList, setCategoriasList] = useState([])
+
+  useEffect(() => {
+    const fetchCatalog = async () => {
+      const { data: prods } = await supabase.from('productos').select('*').eq('disponible', true)
+      if (prods) setTodosProductos(prods)
+      const { data: cats } = await supabase.from('categorias').select('*')
+      if (cats) setCategoriasList(cats)
+    }
+    fetchCatalog()
+  }, [])
+
+  const getFullProduct = (nombreSimplified) => {
+    const clean = (s) => s.toLowerCase()
+      .replace(/á/g, 'a').replace(/é/g, 'e').replace(/í/g, 'i').replace(/ó/g, 'o').replace(/ú/g, 'u')
+      .replace(/[^a-z0-9]/g, '')
+    
+    const searchName = clean(nombreSimplified)
+
+    const match = todosProductos.find(p => {
+      const cleanP = clean(p.nombre)
+      return cleanP.includes(searchName) || searchName.includes(cleanP)
+    })
+
+    if (!match) return null
+
+    const imagen = match.imagen_url || 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="100%" height="100%" fill="%231a1a1a"/></svg>'
+    const precio = typeof match.precio === 'number' ? `S/ ${match.precio.toFixed(2)}` : match.precio
+
+    const catGlowObj = categoriasList.find(c => c.nombre === match.categoria)
+    const color = catGlowObj?.color || '#e63946'
+
+    const { opciones, complementos: comps } = getOptionsAndComplements(match, imagen)
+
+    const finalOpciones = match.opciones ? (
+      match.opciones.tipo === 'estatico' ? null : {
+        tipo: match.opciones.tipo,
+        max_seleccion: match.opciones.max_seleccion,
+        titulo: match.opciones.titulo || 'Elige una opción',
+        subtitulo: match.opciones.tipo === 'sabores' ? `Elige hasta ${match.opciones.max_seleccion} sabores` : 'Elige 1 opción',
+        items: match.opciones.items?.map(item => ({
+          nombre: item.nombre,
+          extra: parseFloat(item.extra) || 0,
+          imagen: item.imagen || imagen
+        })) || []
+      }
+    ) : opciones
+
+    return {
+      id: match.id,
+      nombre: match.nombre,
+      precio,
+      imagen,
+      tag: match.tag,
+      desc: match.descripcion || match.desc || '',
+      opciones: finalOpciones,
+      complementos: match.categoria === 'Bebidas' || match.categoria === 'Postres' ? undefined : comps,
+      color
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] font-sans">
