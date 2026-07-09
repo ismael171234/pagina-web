@@ -563,21 +563,45 @@ function Admin() {
                     </div>
 
                     <div>
-                      <div className="flex justify-between items-center mb-1.5">
+                      <div className="flex justify-between items-center mb-1.5 flex-wrap gap-1">
                         <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide block">Opciones disponibles</label>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const newItems = [...(form.opciones.items || []), { nombre: '', extra: 0 }]
-                            setForm({
-                              ...form,
-                              opciones: { ...form.opciones, items: newItems }
-                            })
-                          }}
-                          className="text-[10px] text-red-600 hover:text-red-500 font-bold transition"
-                        >
-                          + Agregar Opción
-                        </button>
+                        <div className="flex gap-2">
+                          {form.opciones.tipo === 'sabores' && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const presetItems = [
+                                  { nombre: 'BBQ' },
+                                  { nombre: 'Acevichadas' },
+                                  { nombre: 'Maracuyá' },
+                                  { nombre: 'Teriyaki' },
+                                  { nombre: 'Honey Mustard' },
+                                  { nombre: 'Mozzarella' }
+                                ]
+                                setForm({
+                                  ...form,
+                                  opciones: { ...form.opciones, items: presetItems }
+                                })
+                              }}
+                              className="text-[10px] bg-red-50 text-red-600 hover:bg-red-100 font-bold px-2 py-0.5 rounded transition"
+                            >
+                              ⚡ Cargar Sabores Alitas
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newItems = [...(form.opciones.items || []), { nombre: '', extra: 0 }]
+                              setForm({
+                                ...form,
+                                opciones: { ...form.opciones, items: newItems }
+                              })
+                            }}
+                            className="text-[10px] text-red-600 hover:text-red-500 font-bold transition"
+                          >
+                            + Agregar Opción
+                          </button>
+                        </div>
                       </div>
                       <div className="flex flex-col gap-2 max-h-40 overflow-y-auto">
                         {form.opciones.items?.map((item, idx) => (

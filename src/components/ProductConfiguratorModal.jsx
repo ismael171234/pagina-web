@@ -18,8 +18,16 @@ export default function ProductConfiguratorModal({ producto, onClose, color }) {
     ? parseFloat(producto.precio.replace('S/ ', ''))
     : (producto.precio || 0)
 
-  const esMultiselect = producto.opciones?.tipo === 'sabores' && producto.opciones?.max_seleccion > 1
-  const maxSeleccion = producto.opciones?.max_seleccion || 1
+  const esMultiselect = producto.opciones?.tipo === 'sabores'
+    ? (producto.opciones.max_seleccion > 1)
+    : (producto.opciones?.subtitulo?.toLowerCase().includes('hasta') || producto.opciones?.titulo?.toLowerCase().includes('sabores'))
+
+  let maxSeleccion = producto.opciones?.max_seleccion || 1
+  if (producto.opciones && !producto.opciones.tipo) {
+    if (producto.opciones.titulo?.includes('4') || producto.opciones.subtitulo?.includes('4')) {
+      maxSeleccion = 4
+    }
+  }
 
   // Calcular extra por variación de tamaño
   const optionExtra = producto.opciones && !esMultiselect
