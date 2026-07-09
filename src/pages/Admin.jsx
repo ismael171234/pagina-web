@@ -1391,78 +1391,111 @@ function Admin() {
             )
           })()}
 
-          {vistaActiva === 'productos' && (
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-bold text-gray-900">Gestión de productos</h2>
-                  <p className="text-xs text-gray-400">{productos.length} productos en total</p>
-                </div>
-                <button onClick={abrirModalNuevo} className="flex items-center gap-2 bg-red-600 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-red-700 transition shadow-sm">
-                  <FiPlus size={16} /> Nuevo producto
-                </button>
-              </div>
+          {vistaActiva === 'productos' && (() => {
+            const totalPaginasProductos = Math.ceil(productosFiltrados.length / itemsPorPaginaProductos) || 1
+            const idxInicioProductos = (paginaProductos - 1) * itemsPorPaginaProductos
+            const productosPaginados = productosFiltrados.slice(idxInicioProductos, idxInicioProductos + itemsPorPaginaProductos)
 
-              <div className="flex gap-2 overflow-x-auto pb-1">
-                {['Todas', ...listaCategorias].map(cat => (
-                  <button key={cat} onClick={() => setFiltroCategoria(cat)}
-                    className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition ${filtroCategoria === cat ? 'bg-red-600 text-white shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}`}>
-                    {cat}
-                  </button>
-                ))}
-              </div>
-
-              {productosFiltrados.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center">
-                  <FiPackage className="text-gray-300 text-5xl mx-auto mb-3" />
-                  <p className="text-gray-400 font-medium">No hay productos en esta categoría</p>
-                  <button onClick={abrirModalNuevo} className="mt-4 bg-red-600 text-white px-5 py-2 rounded-xl text-sm font-bold hover:bg-red-700 transition">
-                    Agregar primero
+            return (
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-bold text-gray-900">Gestión de productos</h2>
+                    <p className="text-xs text-gray-400">{productosFiltrados.length} productos en esta categoría</p>
+                  </div>
+                  <button onClick={abrirModalNuevo} className="flex items-center gap-2 bg-red-600 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-red-700 transition shadow-sm">
+                    <FiPlus size={16} /> Nuevo producto
                   </button>
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {productosFiltrados.map((p) => (
-                    <div key={p.id} className={`bg-white rounded-2xl shadow-sm border overflow-hidden hover:shadow-md transition ${!p.disponible ? 'opacity-60 border-gray-200' : 'border-gray-100'}`}>
-                      {p.imagen_url && (
-                        <div className="w-full h-36 overflow-hidden">
-                          <img src={p.imagen_url} alt={p.nombre} className="w-full h-full object-cover" />
-                        </div>
-                      )}
-                      {!p.imagen_url && (
-                        <div className="w-full h-36 bg-gray-100 flex items-center justify-center">
-                          <FiPackage className="text-gray-300 text-4xl" />
-                        </div>
-                      )}
-                      <div className="p-4">
-                        <div className="flex items-start justify-between mb-1">
-                          <p className="text-sm font-bold text-gray-900 leading-tight">{p.nombre}</p>
-                          {p.tag && <span className="text-xs bg-red-100 text-red-600 font-bold px-2 py-0.5 rounded-full flex-shrink-0 ml-2">{p.tag}</span>}
-                        </div>
-                        <p className="text-xs text-gray-400 leading-tight line-clamp-2 mb-2">{p.descripcion}</p>
-                        <div className="flex items-center justify-between mb-3">
-                          <p className="text-red-600 font-bold text-base">S/ {parseFloat(p.precio).toFixed(2)}</p>
-                          <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{p.categoria}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <button onClick={() => toggleDisponible(p)} className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full transition flex-1 justify-center ${p.disponible ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
-                            {p.disponible ? <FiToggleRight size={14} /> : <FiToggleLeft size={14} />}
-                            {p.disponible ? 'Disponible' : 'No disponible'}
-                          </button>
-                          <button onClick={() => abrirModalEditar(p)} className="p-2 text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition">
-                            <FiEdit2 size={14} />
-                          </button>
-                          <button onClick={() => eliminarProducto(p.id)} className="p-2 text-red-600 bg-red-50 rounded-xl hover:bg-red-100 transition">
-                            <FiTrash2 size={14} />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
+
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {['Todas', ...listaCategorias].map(cat => (
+                    <button key={cat} onClick={() => setFiltroCategoria(cat)}
+                      className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition ${filtroCategoria === cat ? 'bg-red-600 text-white shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}`}>
+                      {cat}
+                    </button>
                   ))}
                 </div>
-              )}
-            </div>
-          )}
+
+                {productosPaginados.length === 0 ? (
+                  <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center">
+                    <FiPackage className="text-gray-300 text-5xl mx-auto mb-3" />
+                    <p className="text-gray-400 font-medium">No hay productos en esta categoría</p>
+                    <button onClick={abrirModalNuevo} className="mt-4 bg-red-600 text-white px-5 py-2 rounded-xl text-sm font-bold hover:bg-red-700 transition">
+                      Agregar primero
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {productosPaginados.map((p) => (
+                        <div key={p.id} className={`bg-white rounded-2xl shadow-sm border overflow-hidden hover:shadow-md transition ${!p.disponible ? 'opacity-60 border-gray-200' : 'border-gray-100'}`}>
+                          {p.imagen_url && (
+                            <div className="w-full h-36 overflow-hidden">
+                              <img src={p.imagen_url} alt={p.nombre} className="w-full h-full object-cover" />
+                            </div>
+                          )}
+                          {!p.imagen_url && (
+                            <div className="w-full h-36 bg-gray-100 flex items-center justify-center">
+                              <FiPackage className="text-gray-300 text-4xl" />
+                            </div>
+                          )}
+                          <div className="p-4">
+                            <div className="flex items-start justify-between mb-1">
+                              <p className="text-sm font-bold text-gray-900 leading-tight">{p.nombre}</p>
+                              {p.tag && <span className="text-xs bg-red-100 text-red-600 font-bold px-2 py-0.5 rounded-full flex-shrink-0 ml-2">{p.tag}</span>}
+                            </div>
+                            <p className="text-xs text-gray-400 leading-tight line-clamp-2 mb-2">{p.descripcion}</p>
+                            <div className="flex items-center justify-between mb-3">
+                              <p className="text-red-600 font-bold text-base">S/ {parseFloat(p.precio).toFixed(2)}</p>
+                              <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{p.categoria}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button onClick={() => toggleDisponible(p)} className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full transition flex-1 justify-center ${p.disponible ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+                                {p.disponible ? <FiToggleRight size={14} /> : <FiToggleLeft size={14} />}
+                                {p.disponible ? 'Disponible' : 'No disponible'}
+                              </button>
+                              <button onClick={() => abrirModalEditar(p)} className="p-2 text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition">
+                                <FiEdit2 size={14} />
+                              </button>
+                              <button onClick={() => eliminarProducto(p.id)} className="p-2 text-red-600 bg-red-50 rounded-xl hover:bg-red-100 transition">
+                                <FiTrash2 size={14} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Paginación Productos */}
+                    {totalPaginasProductos > 1 && (
+                      <div className="flex items-center justify-center gap-2 mt-4 bg-white border border-gray-100 p-3 rounded-2xl shadow-sm">
+                        <button
+                          type="button"
+                          onClick={() => setPaginaProductos(prev => Math.max(prev - 1, 1))}
+                          disabled={paginaProductos === 1}
+                          className="px-3 py-1.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 disabled:opacity-40 transition"
+                        >
+                          Anterior
+                        </button>
+                        <span className="text-xs font-bold text-gray-500">
+                          Página {paginaProductos} de {totalPaginasProductos}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setPaginaProductos(prev => Math.min(prev + 1, totalPaginasProductos))}
+                          disabled={paginaProductos === totalPaginasProductos}
+                          className="px-3 py-1.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-600 hover:bg-gray-50 disabled:opacity-40 transition"
+                        >
+                          Siguiente
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )
+          })()}
 
           {vistaActiva === 'usuarios' && (
             <div className="flex flex-col gap-3">
