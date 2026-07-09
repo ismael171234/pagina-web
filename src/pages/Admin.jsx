@@ -465,7 +465,7 @@ function Admin() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+    <div className="h-screen bg-gray-100 flex overflow-hidden" style={{ fontFamily: "'Montserrat', sans-serif" }}>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap');`}</style>
 
       {modalProducto && (
@@ -795,7 +795,7 @@ function Admin() {
         </div>
       )}
 
-      <div className={`${sidebarOpen ? 'w-64' : 'w-16'} bg-gray-900 min-h-screen flex flex-col transition-all duration-300 flex-shrink-0 shadow-xl`}>
+      <div className={`${sidebarOpen ? 'w-64' : 'w-16'} bg-gray-900 h-screen flex flex-col transition-all duration-300 flex-shrink-0 shadow-xl`}>
         <div className="flex items-center justify-between px-4 py-5 border-b border-gray-800">
           {sidebarOpen && <img src={lesq} alt="L'ESQ" className="h-9 object-contain" />}
           <button onClick={() => setSidebarOpen(!sidebarOpen)} className="text-gray-400 hover:text-white transition p-1">
@@ -839,7 +839,7 @@ function Admin() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 h-screen overflow-y-auto">
         <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between sticky top-0 z-10 shadow-sm">
           <div>
             <h1 className="text-xl font-bold text-gray-900 capitalize">{navItems.find(n => n.id === vistaActiva)?.label}</h1>
