@@ -38,6 +38,7 @@ function Admin() {
   const [usuarios, setUsuarios] = useState([])
   const [resenas, setResenas] = useState([])
   const [productos, setProductos] = useState([])
+  const [categorias, setCategorias] = useState([])
   const [config, setConfig] = useState({
     nombre: 'La Esquina',
     telefono: '',
