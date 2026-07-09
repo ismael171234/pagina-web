@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useCart } from '../context/CartContext'
+import { supabase } from '../supabase/supabaseClient'
 import lesq from '../assets/lesq.png'
 import {
   HiMenu, HiX,
@@ -17,77 +18,44 @@ import { BiDish } from 'react-icons/bi'
 import { BsFire } from 'react-icons/bs'
 import { TbMeat } from 'react-icons/tb'
 
-// ── Lista completa de productos para la búsqueda ───────────
-const TODOS_PRODUCTOS = [
-  // Hamburguesas
-  { id: 1,  nombre: 'La Lorna',               precio: 'S/ 11.00', categoria: 'Hamburguesas' },
-  { id: 2,  nombre: 'La Ruca',                precio: 'S/ 14.00', categoria: 'Hamburguesas' },
-  { id: 3,  nombre: 'La Asolapada',           precio: 'S/ 14.00', categoria: 'Hamburguesas' },
-  { id: 4,  nombre: 'Don C',                  precio: 'S/ 17.00', categoria: 'Hamburguesas' },
-  // Alitas
-  { id: 5,  nombre: 'Alitas Acevichadas',     precio: 'S/ 25.00', categoria: 'Alitas' },
-  { id: 6,  nombre: 'Alitas BBQ',             precio: 'S/ 25.00', categoria: 'Alitas' },
-  { id: 7,  nombre: 'Alitas Maracuyá',        precio: 'S/ 25.00', categoria: 'Alitas' },
-  { id: 8,  nombre: 'Alitas Mozarella',       precio: 'S/ 25.00', categoria: 'Alitas' },
-  { id: 9,  nombre: 'Alitas Teriyaki',        precio: 'S/ 25.00', categoria: 'Alitas' },
-  { id: 10, nombre: 'Alitas Honey Mustard',   precio: 'S/ 25.00', categoria: 'Alitas' },
-  { id: 11, nombre: 'Ronda Mini 12un x4',     precio: 'S/ 39.00', categoria: 'Alitas' },
-  { id: 12, nombre: 'Ronda Fresh 16un x4',    precio: 'S/ 49.00', categoria: 'Alitas' },
-  { id: 13, nombre: 'Ronda Big 20un x4',      precio: 'S/ 59.00', categoria: 'Alitas' },
-  // Pollo a la Brasa
-  { id: 14, nombre: 'Pollo Entero',           precio: 'S/ 57.00', categoria: 'Pollo a la Brasa' },
-  { id: 15, nombre: '1/2 Pollo a la Brasa',   precio: 'S/ 33.00', categoria: 'Pollo a la Brasa' },
-  { id: 16, nombre: '1/4 Pollo a la Brasa',   precio: 'S/ 20.00', categoria: 'Pollo a la Brasa' },
-  { id: 17, nombre: '1/8 Pollo a la Brasa',   precio: 'S/ 12.00', categoria: 'Pollo a la Brasa' },
-  // Salchis
-  { id: 18, nombre: 'Salchi Cardiaca',        precio: 'S/ 22.00', categoria: 'Salchis Salchis' },
-  { id: 19, nombre: 'Salchi Brasa 1/4',       precio: 'S/ 26.00', categoria: 'Salchis Salchis' },
-  { id: 20, nombre: 'Salchi Brasa 1/8',       precio: 'S/ 16.00', categoria: 'Salchis Salchis' },
-  { id: 21, nombre: 'Salchi Clásica',         precio: 'S/ 12.00', categoria: 'Salchis Salchis' },
-  // Especiales
-  { id: 22, nombre: 'Aguadito',               precio: 'S/ 6.00',  categoria: 'Especiales' },
-  { id: 23, nombre: 'Anticuchos',             precio: 'S/ 18.00', categoria: 'Especiales' },
-  { id: 24, nombre: 'Arroz Chaufa de Pollo',  precio: 'S/ 10.00', categoria: 'Especiales' },
-  { id: 25, nombre: 'Mollejitas',             precio: 'S/ 16.00', categoria: 'Especiales' },
-  // Combos
-  { id: 26, nombre: 'Combo Anticuchos',       precio: 'S/ 35.90', categoria: 'Combos' },
-  { id: 27, nombre: 'Combo Alitas',           precio: 'S/ 32.90', categoria: 'Combos' },
-  { id: 28, nombre: 'Combo Nuggets',          precio: 'S/ 28.90', categoria: 'Combos' },
-  { id: 29, nombre: 'Combo Pollo BBQ',        precio: 'S/ 34.90', categoria: 'Combos' },
-  // Bebidas
-  { id: 30, nombre: 'Coca Cola',              precio: 'S/ 5.90',  categoria: 'Bebidas' },
-  { id: 31, nombre: 'Fanta',                  precio: 'S/ 5.90',  categoria: 'Bebidas' },
-  { id: 32, nombre: 'Inca Kola',              precio: 'S/ 5.90',  categoria: 'Bebidas' },
-  { id: 33, nombre: 'Sprint',                 precio: 'S/ 4.90',  categoria: 'Bebidas' },
-  { id: 34, nombre: 'Maracuyá',              precio: 'S/ 6.50',  categoria: 'Bebidas' },
-  { id: 35, nombre: 'Chicha Morada',          precio: 'S/ 6.50',  categoria: 'Bebidas' },
-  // Postres
-  { id: 36, nombre: 'Arroz con Leche',        precio: 'S/ 8.90',  categoria: 'Postres' },
-  { id: 37, nombre: 'Brownie con Helado',     precio: 'S/ 12.90', categoria: 'Postres' },
-  { id: 38, nombre: 'Cheesecake de Fresa',    precio: 'S/ 11.90', categoria: 'Postres' },
-  { id: 39, nombre: 'Torta de Chocolate',     precio: 'S/ 10.90', categoria: 'Postres' },
+// Helper: mapear iconos de categorías dinámicamente
+const getCategoryIcon = (nombre) => {
+  switch (nombre) {
+    case 'Hamburguesas': return <GiHamburger />
+    case 'Alitas': return <GiChickenOven />
+    case 'Pollo a la Brasa': return <BsFire />
+    case 'Salchis Salchis': return <TbMeat />
+    case 'Especiales': return <FiStar />
+    case 'Combos': return <GiForkKnifeSpoon />
+    case 'Bebidas': return <RiDrinks2Fill />
+    case 'Postres': return <BiDish />
+    default: return <GiForkKnifeSpoon />
+  }
+}
+
+const DEFAULT_CATEGORIES = [
+  { nombre: 'Hamburguesas', color: '#e63946', descripcion: 'Artesanales · Jugosas · Irresistibles' },
+  { nombre: 'Alitas', color: '#f4a261', descripcion: '6 sabores · Crujientes · Para compartir' },
+  { nombre: 'Pollo a la Brasa', color: '#e63946', descripcion: 'A la lena · Jugoso · Con papas y ensalada' },
+  { nombre: 'Salchis Salchis', color: '#e63946', descripcion: 'Papas · Chorizo · Pollo · Irresistibles' },
+  { nombre: 'Especiales', color: '#7209b7', descripcion: 'Platos peruanos · Sabores de siempre' },
+  { nombre: 'Combos', color: '#3a86ff', descripcion: 'Ahorra mas · Todo incluido · Gaseosa gratis' },
+  { nombre: 'Bebidas', color: '#00b4d8', descripcion: 'Frias · Naturales · Refrescantes' },
+  { nombre: 'Postres', color: '#f72585', descripcion: 'Dulces · Cremosos · El cierre perfecto' }
 ]
 
-const CATEGORIAS_MENU = [
-  { nombre: 'Hamburguesas',     icon: <GiHamburger />,      desc: '4 opciones' },
-  { nombre: 'Alitas',           icon: <GiChickenOven />,    desc: '9 opciones' },
-  { nombre: 'Pollo a la Brasa', icon: <BsFire />,           desc: '4 porciones' },
-  { nombre: 'Salchis Salchis',  icon: <TbMeat />,           desc: '4 opciones' },
-  { nombre: 'Especiales',       icon: <FiStar />,           desc: '4 platos' },
-  { nombre: 'Combos',           icon: <GiForkKnifeSpoon />, desc: '4 combos' },
-  { nombre: 'Bebidas',          icon: <RiDrinks2Fill />,    desc: '6 bebidas' },
-  { nombre: 'Postres',          icon: <BiDish />,           desc: '4 postres' },
-]
-
-const CATEGORIA_COLORES = {
-  'Hamburguesas':     'bg-orange-500/10 text-orange-400 border-orange-500/20',
-  'Alitas':           'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
-  'Pollo a la Brasa': 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-  'Salchis Salchis':  'bg-pink-500/10 text-pink-400 border-pink-500/20',
-  'Especiales':       'bg-purple-500/10 text-purple-400 border-purple-500/20',
-  'Combos':           'bg-blue-500/10 text-blue-400 border-blue-500/20',
-  'Bebidas':          'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
-  'Postres':          'bg-rose-500/10 text-rose-400 border-rose-500/20',
+const getCategoryGlowClass = (catNombre) => {
+  const standardMap = {
+    'Hamburguesas':     'bg-orange-500/10 text-orange-400 border-orange-500/20',
+    'Alitas':           'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
+    'Pollo a la Brasa': 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+    'Salchis Salchis':  'bg-pink-500/10 text-pink-400 border-pink-500/20',
+    'Especiales':       'bg-purple-500/10 text-purple-400 border-purple-500/20',
+    'Combos':           'bg-blue-500/10 text-blue-400 border-blue-500/20',
+    'Bebidas':          'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
+    'Postres':          'bg-rose-500/10 text-rose-400 border-rose-500/20',
+  }
+  return standardMap[catNombre] || 'bg-red-500/10 text-red-400 border-red-500/20'
 }
 
 function Navbar() {
@@ -99,12 +67,45 @@ function Navbar() {
   const [scrolled, setScrolled]           = useState(false)
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
 
+  const [categorias, setCategorias] = useState([])
+  const [todosProductos, setTodosProductos] = useState([])
+
   const { usuario, datosUsuario, cerrarSesion } = useAuth()
   const { totalItems, setCartOpen } = useCart()
   const navigate  = useNavigate()
   const location  = useLocation()
   const searchRef = useRef(null)
   const profileRef = useRef(null)
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const { data: catData } = await supabase.from('categorias').select('*').order('id', { ascending: true })
+      if (catData) setCategorias(catData)
+
+      const { data: prodData } = await supabase.from('productos').select('*').eq('disponible', true)
+      if (prodData) setTodosProductos(prodData)
+    }
+    fetchData()
+
+    const chanCats = supabase.channel('navbar-cats')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'categorias' }, fetchData)
+      .subscribe()
+    const chanProds = supabase.channel('navbar-prods')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'productos' }, fetchData)
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(chanCats)
+      supabase.removeChannel(chanProds)
+    }
+  }, [])
+
+  const listaCategorias = categorias.length > 0 ? categorias : DEFAULT_CATEGORIES
+
+  const getProductCountText = (catNombre) => {
+    const count = todosProductos.filter(p => p.categoria === catNombre).length
+    return `${count} opción${count !== 1 ? 'es' : ''}`
+  }
 
   useEffect(() => {
     const handleOutsideClick = (e) => {
@@ -137,7 +138,7 @@ function Navbar() {
   const handleSearch = (valor) => {
     setSearch(valor)
     if (!valor.trim()) { setResultados([]); setMostrarResultados(false); return }
-    const filtrados = TODOS_PRODUCTOS.filter((p) =>
+    const filtrados = todosProductos.filter((p) =>
       p.nombre.toLowerCase().includes(valor.toLowerCase()) ||
       p.categoria.toLowerCase().includes(valor.toLowerCase())
     ).slice(0, 7)
@@ -268,12 +269,14 @@ function Navbar() {
                           <div className={`w-1.5 h-1.5 rounded-full bg-red-500`} />
                           <div>
                             <p className="text-sm font-bold text-white">{producto.nombre}</p>
-                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${CATEGORIA_COLORES[producto.categoria] || 'bg-gray-800 text-gray-400 border-gray-700'}`}>
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${getCategoryGlowClass(producto.categoria)}`}>
                               {producto.categoria}
                             </span>
                           </div>
                         </div>
-                        <p className="text-red-400 font-black text-sm flex-shrink-0">{producto.precio}</p>
+                        <p className="text-red-400 font-black text-sm flex-shrink-0">
+                          {typeof producto.precio === 'number' ? `S/ ${producto.precio.toFixed(2)}` : producto.precio}
+                        </p>
                       </div>
                     ))}
                     <div className="px-4 py-2.5 bg-red-600/10 border-t border-red-500/20">
@@ -499,7 +502,7 @@ function Navbar() {
                 Nuestra carta
               </p>
               <div className="flex flex-col gap-1">
-                {CATEGORIAS_MENU.map((cat) => (
+                {listaCategorias.map((cat) => (
                   <Link
                     key={cat.nombre}
                     to="/menu"
@@ -508,11 +511,11 @@ function Navbar() {
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/8 flex items-center justify-center text-red-400 group-hover:bg-red-600/20 group-hover:border-red-500/30 transition-all duration-200">
-                        {cat.icon}
+                        {getCategoryIcon(cat.nombre)}
                       </div>
                       <div>
                         <p className="text-white font-bold text-sm leading-tight">{cat.nombre}</p>
-                        <p className="text-gray-600 text-[10px]">{cat.desc}</p>
+                        <p className="text-gray-600 text-[10px]">{getProductCountText(cat.nombre)}</p>
                       </div>
                     </div>
                     <FiChevronRight className="text-gray-700 group-hover:text-red-400 group-hover:translate-x-1 transition-all duration-200" size={14} />

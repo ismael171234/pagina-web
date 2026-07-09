@@ -27,9 +27,8 @@ function Barra({ label, valor, max, color = '#e63946', prefix = '', suffix = '' 
   )
 }
 
-const CATEGORIAS = ['Hamburguesas', 'Alitas', 'Pollo a la Brasa', 'Salchis Salchis', 'Especiales', 'Combos', 'Bebidas', 'Postres']
-
-const FORM_VACIO = { nombre: '', precio: '', categoria: 'Hamburguesas', descripcion: '', imagen_url: '', tag: '', disponible: true }
+const DEFAULT_CATEGORIAS = ['Hamburguesas', 'Alitas', 'Pollo a la Brasa', 'Salchis Salchis', 'Especiales', 'Combos', 'Bebidas', 'Postres']
+const FORM_VACIO = { nombre: '', precio: '', categoria: '', descripcion: '', imagen_url: '', tag: '', disponible: true, opciones: { tipo: 'estatico', titulo: '', max_seleccion: 1, items: [] } }
 
 function Admin() {
   const { usuario, datosUsuario, cerrarSesion } = useAuth()
@@ -39,6 +38,7 @@ function Admin() {
   const [usuarios, setUsuarios]   = useState([])
   const [resenas, setResenas]     = useState([])
   const [productos, setProductos] = useState([])
+  const [categorias, setCategorias] = useState([])
   const [config, setConfig]       = useState({
     nombre: 'La Esquina',
     telefono: '',
@@ -69,6 +69,15 @@ function Admin() {
   const [guardandoConfig, setGuardandoConfig] = useState(false)
   const [configGuardada, setConfigGuardada]   = useState(false)
 
+  // Estados de Categorías CRUD e Inline
+  const [creandoCategoriaInline, setCreandoCategoriaInline] = useState(false)
+  const [modalCategoria, setModalCategoria] = useState(false)
+  const [categoriaEditando, setCategoriaEditando] = useState(null)
+  const [formCategoria, setFormCategoria] = useState({ nombre: '', descripcion: '', color: '#e63946' })
+  const [guardandoCategoria, setGuardandoCategoria] = useState(false)
+
+  const listaCategorias = categorias.length > 0 ? categorias.map(c => c.nombre) : DEFAULT_CATEGORIAS
+
   useEffect(() => {
     if (!usuario) { navigate('/login'); return }
     if (datosUsuario === undefined || datosUsuario === null) return
@@ -89,15 +98,19 @@ function Admin() {
     const subProductos = supabase.channel('admin-productos')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'productos' }, fetchProductos)
       .subscribe()
+    const subCategorias = supabase.channel('admin-categorias')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'categorias' }, fetchCategorias)
+      .subscribe()
 
     return () => {
       supabase.removeChannel(subPedidos)
       supabase.removeChannel(subUsuarios)
       supabase.removeChannel(subProductos)
+      supabase.removeChannel(subCategorias)
     }
   }, [autorizado])
 
-  const fetchTodo = () => { fetchPedidos(); fetchUsuarios(); fetchResenas(); fetchProductos(); fetchConfig() }
+  const fetchTodo = () => { fetchPedidos(); fetchUsuarios(); fetchResenas(); fetchProductos(); fetchConfig(); fetchCategorias() }
 
   const fetchPedidos = async () => {
     const { data } = await supabase.from('pedidos').select('*')
@@ -106,6 +119,10 @@ function Admin() {
   const fetchUsuarios  = async () => { const { data } = await supabase.from('usuarios').select('*'); if (data) setUsuarios(data) }
   const fetchResenas   = async () => { const { data } = await supabase.from('resenas').select('*'); if (data) setResenas(data) }
   const fetchProductos = async () => { const { data } = await supabase.from('productos').select('*').order('creado_en', { ascending: false }); if (data) setProductos(data) }
+  const fetchCategorias = async () => {
+    const { data } = await supabase.from('categorias').select('*').order('id', { ascending: true })
+    if (data) setCategorias(data)
+  }
   const fetchConfig    = async () => {
     try {
       const { data, error } = await supabase.from('configuracion').select('*').maybeSingle()
@@ -136,21 +153,67 @@ function Admin() {
     await supabase.from('pedidos').update({ estado }).eq('id', id)
   }
 
-  const abrirModalNuevo = () => { setForm(FORM_VACIO); setProductoEditando(null); setModalProducto(true) }
-  const abrirModalEditar = (p) => { setForm({ nombre: p.nombre, precio: p.precio, categoria: p.categoria, descripcion: p.descripcion || '', imagen_url: p.imagen_url || '', tag: p.tag || '', disponible: p.disponible }); setProductoEditando(p); setModalProducto(true) }
+  const abrirModalNuevo = () => {
+    setForm({ ...FORM_VACIO, categoria: listaCategorias[0] || '' })
+    setProductoEditando(null)
+    setModalProducto(true)
+    setCreandoCategoriaInline(false)
+  }
+  const abrirModalEditar = (p) => {
+    setForm({
+      nombre: p.nombre,
+      precio: p.precio,
+      categoria: p.categoria,
+      descripcion: p.descripcion || '',
+      imagen_url: p.imagen_url || '',
+      tag: p.tag || '',
+      disponible: p.disponible,
+      opciones: p.opciones || { tipo: 'estatico', titulo: '', max_seleccion: 1, items: [] }
+    })
+    setProductoEditando(p)
+    setModalProducto(true)
+    setCreandoCategoriaInline(false)
+  }
 
   const guardarProducto = async () => {
-    if (!form.nombre || !form.precio) return
+    if (!form.nombre || !form.precio || !form.categoria) return
     setGuardando(true)
-    const payload = { ...form, precio: parseFloat(form.precio) }
-    if (productoEditando) {
-      await supabase.from('productos').update(payload).eq('id', productoEditando.id)
-    } else {
-      await supabase.from('productos').insert([payload])
+    try {
+      const categoriaFinal = form.categoria.trim()
+      const catExiste = categorias.some(c => c.nombre.toLowerCase() === categoriaFinal.toLowerCase())
+      
+      if (categoriaFinal && !catExiste) {
+        await supabase
+          .from('categorias')
+          .insert([{ nombre: categoriaFinal, color: '#e63946', descripcion: 'Nueva sección de la carta' }])
+        await fetchCategorias()
+      }
+
+      const payload = {
+        nombre: form.nombre.trim(),
+        precio: parseFloat(form.precio),
+        categoria: categoriaFinal,
+        descripcion: form.descripcion || '',
+        imagen_url: form.imagen_url || '',
+        tag: form.tag || '',
+        disponible: form.disponible,
+        opciones: form.opciones
+      }
+
+      if (productoEditando) {
+        await supabase.from('productos').update(payload).eq('id', productoEditando.id)
+      } else {
+        await supabase.from('productos').insert([payload])
+      }
+      setModalProducto(false)
+      setCreandoCategoriaInline(false)
+      fetchProductos()
+    } catch (err) {
+      console.error(err)
+      alert('Error al guardar el producto')
+    } finally {
+      setGuardando(false)
     }
-    setGuardando(false)
-    setModalProducto(false)
-    fetchProductos()
   }
 
   const eliminarProducto = async (id) => {
@@ -162,6 +225,54 @@ function Admin() {
   const toggleDisponible = async (p) => {
     await supabase.from('productos').update({ disponible: !p.disponible }).eq('id', p.id)
     fetchProductos()
+  }
+
+  // Categorías CRUD Handlers
+  const abrirModalCategoriaNueva = () => {
+    setFormCategoria({ nombre: '', descripcion: '', color: '#e63946' })
+    setCategoriaEditando(null)
+    setModalCategoria(true)
+  }
+
+  const abrirModalCategoriaEditar = (cat) => {
+    setFormCategoria({ nombre: cat.nombre, descripcion: cat.descripcion || '', color: cat.color || '#e63946' })
+    setCategoriaEditando(cat)
+    setModalCategoria(true)
+  }
+
+  const guardarCategoria = async () => {
+    if (!formCategoria.nombre) return
+    setGuardandoCategoria(true)
+    try {
+      const payload = {
+        nombre: formCategoria.nombre.trim(),
+        descripcion: formCategoria.descripcion.trim(),
+        color: formCategoria.color.trim()
+      }
+      if (categoriaEditando) {
+        await supabase.from('categorias').update(payload).eq('id', categoriaEditando.id)
+      } else {
+        await supabase.from('categorias').insert([payload])
+      }
+      setModalCategoria(false)
+      fetchCategorias()
+    } catch (err) {
+      console.error(err)
+      alert('Error al guardar la categoría')
+    } finally {
+      setGuardandoCategoria(false)
+    }
+  }
+
+  const eliminarCategoria = async (cat) => {
+    if (!confirm(`¿Seguro que quieres eliminar la categoría "${cat.nombre}"? Esto no eliminará los productos, pero se quedarán sin categoría asignada.`)) return
+    try {
+      await supabase.from('categorias').delete().eq('id', cat.id)
+      fetchCategorias()
+    } catch (err) {
+      console.error(err)
+      alert('Error al eliminar la categoría')
+    }
   }
 
   const guardarConfig = async () => {
@@ -241,6 +352,7 @@ function Admin() {
     { id: 'reportes',   label: 'Reportes',    icon: <FiBarChart2 /> },
     { id: 'pedidos',    label: 'Pedidos',     icon: <FiList />      },
     { id: 'productos',  label: 'Productos',   icon: <FiPackage />   },
+    { id: 'categorias', label: 'Categorías',  icon: <FiMenu />      },
     { id: 'usuarios',   label: 'Usuarios',    icon: <FiUsers />     },
     { id: 'config',     label: 'Configuracion', icon: <FiSettings /> },
   ]
@@ -264,12 +376,12 @@ function Admin() {
 
       {modalProducto && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <h3 className="text-lg font-bold text-gray-900">{productoEditando ? 'Editar producto' : 'Nuevo producto'}</h3>
               <button onClick={() => setModalProducto(false)} className="text-gray-400 hover:text-gray-600 transition"><FiX size={20} /></button>
             </div>
-            <div className="px-6 py-5 flex flex-col gap-4">
+            <div className="px-6 py-5 flex flex-col gap-4 max-h-[60vh] overflow-y-auto">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1 block">Nombre</label>
@@ -282,10 +394,42 @@ function Admin() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1 block">Categoría</label>
-                  <select value={form.categoria} onChange={e => setForm({ ...form, categoria: e.target.value })} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-red-500 transition bg-white">
-                    {CATEGORIAS.map(c => <option key={c}>{c}</option>)}
-                  </select>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wide block">Categoría</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextState = !creandoCategoriaInline
+                        setCreandoCategoriaInline(nextState)
+                        if (nextState) {
+                          setForm({ ...form, categoria: '' })
+                        } else {
+                          setForm({ ...form, categoria: listaCategorias[0] || '' })
+                        }
+                      }}
+                      className="text-[10px] text-red-600 hover:text-red-500 font-bold transition"
+                    >
+                      {creandoCategoriaInline ? '✕ Seleccionar' : '+ Nueva'}
+                    </button>
+                  </div>
+                  {creandoCategoriaInline ? (
+                    <input
+                      type="text"
+                      value={form.categoria}
+                      onChange={e => setForm({ ...form, categoria: e.target.value })}
+                      placeholder="Nombre de la categoría"
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-red-500 transition"
+                      required
+                    />
+                  ) : (
+                    <select
+                      value={form.categoria}
+                      onChange={e => setForm({ ...form, categoria: e.target.value })}
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-red-500 transition bg-white"
+                    >
+                      {listaCategorias.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  )}
                 </div>
                 <div>
                   <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1 block">Tag</label>
@@ -346,6 +490,141 @@ function Admin() {
                   />
                 </div>
               </div>
+
+              {/* Opciones y Variaciones */}
+              <div className="border-t border-gray-150 pt-4 flex flex-col gap-3">
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1.5 block">Configuración de Opciones</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { id: 'estatico', label: 'Estático' },
+                      { id: 'variacion', label: 'Variación (Tamaños)' },
+                      { id: 'sabores', label: 'Sabores (Multiselect)' }
+                    ].map(tipo => (
+                      <button
+                        key={tipo.id}
+                        type="button"
+                        onClick={() => {
+                          const defaultOpciones = {
+                            tipo: tipo.id,
+                            titulo: tipo.id === 'variacion' ? 'Elige el tamaño' : tipo.id === 'sabores' ? 'Elige tus sabores' : '',
+                            max_seleccion: tipo.id === 'sabores' ? 4 : 1,
+                            items: tipo.id === 'variacion' 
+                              ? [{ nombre: 'Personal', extra: 0 }, { nombre: 'Grande', extra: 5 }]
+                              : tipo.id === 'sabores'
+                                ? [{ nombre: 'BBQ' }, { nombre: 'Acevichadas' }, { nombre: 'Maracuyá' }, { nombre: 'Teriyaki' }]
+                                : []
+                          }
+                          setForm({ ...form, opciones: defaultOpciones })
+                        }}
+                        className={`py-2 px-3 text-xs font-bold rounded-xl border text-center transition ${
+                          form.opciones?.tipo === tipo.id
+                            ? 'bg-red-500 text-white border-red-500 shadow-sm'
+                            : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                        }`}
+                      >
+                        {tipo.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {form.opciones?.tipo !== 'estatico' && form.opciones?.tipo && (
+                  <div className="bg-gray-50 border border-gray-150 rounded-2xl p-4 flex flex-col gap-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1 block">Título de la Pregunta</label>
+                        <input
+                          type="text"
+                          value={form.opciones.titulo || ''}
+                          onChange={e => setForm({
+                            ...form,
+                            opciones: { ...form.opciones, titulo: e.target.value }
+                          })}
+                          placeholder="Ej: Elige el tamaño"
+                          className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-red-500 transition"
+                        />
+                      </div>
+                      {form.opciones.tipo === 'sabores' && (
+                        <div>
+                          <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-1 block">Límite de selección</label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={form.opciones.max_seleccion || 1}
+                            onChange={e => setForm({
+                              ...form,
+                              opciones: { ...form.opciones, max_seleccion: parseInt(e.target.value) || 1 }
+                            })}
+                            className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-red-500 transition"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between items-center mb-1.5">
+                        <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wide block">Opciones disponibles</label>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newItems = [...(form.opciones.items || []), { nombre: '', extra: 0 }]
+                            setForm({
+                              ...form,
+                              opciones: { ...form.opciones, items: newItems }
+                            })
+                          }}
+                          className="text-[10px] text-red-600 hover:text-red-500 font-bold transition"
+                        >
+                          + Agregar Opción
+                        </button>
+                      </div>
+                      <div className="flex flex-col gap-2 max-h-40 overflow-y-auto">
+                        {form.opciones.items?.map((item, idx) => (
+                          <div key={idx} className="flex gap-2 items-center">
+                            <input
+                              type="text"
+                              value={item.nombre || ''}
+                              onChange={e => {
+                                const newItems = [...form.opciones.items]
+                                newItems[idx].nombre = e.target.value
+                                setForm({ ...form, opciones: { ...form.opciones, items: newItems } })
+                              }}
+                              placeholder="Nombre (Ej: Regular / BBQ)"
+                              className="flex-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-red-500 transition"
+                            />
+                            {form.opciones.tipo === 'variacion' && (
+                              <input
+                                type="number"
+                                step="0.1"
+                                placeholder="Precio extra (S/)"
+                                value={item.extra || 0}
+                                onChange={e => {
+                                  const newItems = [...form.opciones.items]
+                                  newItems[idx].extra = parseFloat(e.target.value) || 0
+                                  setForm({ ...form, opciones: { ...form.opciones, items: newItems } })
+                                }}
+                                className="w-24 bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs outline-none focus:border-red-500 transition"
+                              />
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newItems = form.opciones.items.filter((_, i) => i !== idx)
+                                setForm({ ...form, opciones: { ...form.opciones, items: newItems } })
+                              }}
+                              className="text-gray-450 hover:text-red-500 transition p-1"
+                            >
+                              <FiTrash2 size={13} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="flex items-center gap-3">
                 <button onClick={() => setForm({ ...form, disponible: !form.disponible })} className={`text-2xl transition ${form.disponible ? 'text-green-500' : 'text-gray-300'}`}>
                   {form.disponible ? <FiToggleRight /> : <FiToggleLeft />}
@@ -358,6 +637,41 @@ function Admin() {
               <button onClick={guardarProducto} disabled={guardando || !form.nombre || !form.precio} className="px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-red-600 hover:bg-red-700 transition disabled:opacity-50 flex items-center gap-2">
                 {guardando ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <FiSave size={14} />}
                 {productoEditando ? 'Guardar cambios' : 'Agregar producto'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {modalCategoria && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h3 className="text-lg font-bold text-gray-900">{categoriaEditando ? 'Editar categoría' : 'Nueva categoría'}</h3>
+              <button onClick={() => setModalCategoria(false)} className="text-gray-400 hover:text-gray-600 transition"><FiX size={20} /></button>
+            </div>
+            <div className="px-6 py-5 flex flex-col gap-4">
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1 block">Nombre de la categoría</label>
+                <input value={formCategoria.nombre} onChange={e => setFormCategoria({ ...formCategoria, nombre: e.target.value })} placeholder="Ej: Hamburguesas" className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-red-500 transition" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1 block">Descripción (Encabezado)</label>
+                <textarea value={formCategoria.descripcion} onChange={e => setFormCategoria({ ...formCategoria, descripcion: e.target.value })} placeholder="Ej: Artesanales · Jugosas · Irresistibles" rows={2} className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-red-500 transition resize-none" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1 block">Color (Hexadecimal)</label>
+                <div className="flex gap-3 items-center">
+                  <input type="text" value={formCategoria.color} onChange={e => setFormCategoria({ ...formCategoria, color: e.target.value })} placeholder="#e63946" className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:border-red-500 transition" />
+                  <input type="color" value={formCategoria.color} onChange={e => setFormCategoria({ ...formCategoria, color: e.target.value })} className="w-12 h-10 border border-gray-200 rounded-xl cursor-pointer bg-white" />
+                </div>
+              </div>
+            </div>
+            <div className="px-6 py-4 bg-gray-50 rounded-b-2xl border-t border-gray-100 flex items-center justify-end gap-3">
+              <button onClick={() => setModalCategoria(false)} className="px-4 py-2 text-sm font-bold text-gray-500 hover:bg-gray-100 rounded-xl transition">Cancelar</button>
+              <button onClick={guardarCategoria} disabled={guardandoCategoria} className="bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-xl text-sm font-bold transition disabled:opacity-50 flex items-center gap-2">
+                {guardandoCategoria && <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />}
+                {categoriaEditando ? 'Guardar cambios' : 'Agregar categoría'}
               </button>
             </div>
           </div>
@@ -704,7 +1018,7 @@ function Admin() {
               </div>
 
               <div className="flex gap-2 overflow-x-auto pb-1">
-                {['Todas', ...CATEGORIAS].map(cat => (
+                {['Todas', ...listaCategorias].map(cat => (
                   <button key={cat} onClick={() => setFiltroCategoria(cat)}
                     className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition ${filtroCategoria === cat ? 'bg-red-600 text-white shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}`}>
                     {cat}
@@ -802,6 +1116,59 @@ function Admin() {
                         </td>
                       </tr>
                     ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {vistaActiva === 'categorias' && (
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-gray-900">Gestión de categorías</h2>
+                  <p className="text-xs text-gray-400">{categorias.length} categorías registradas</p>
+                </div>
+                <button onClick={abrirModalCategoriaNueva} className="flex items-center gap-2 bg-red-600 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-red-700 transition shadow-sm">
+                  <FiPlus size={16} /> Nueva categoría
+                </button>
+              </div>
+
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-100">
+                    <tr>
+                      <th className="text-left text-xs font-bold text-gray-500 px-4 py-3">Color</th>
+                      <th className="text-left text-xs font-bold text-gray-500 px-4 py-3">Nombre</th>
+                      <th className="text-left text-xs font-bold text-gray-500 px-4 py-3">Descripción (Encabezado)</th>
+                      <th className="text-right text-xs font-bold text-gray-500 px-4 py-3">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {categorias.map((cat) => (
+                      <tr key={cat.id} className="hover:bg-gray-50 transition">
+                        <td className="px-4 py-3">
+                          <div className="w-6 h-6 rounded-full border border-gray-200 shadow-sm" style={{ backgroundColor: cat.color || '#e63946' }} />
+                        </td>
+                        <td className="px-4 py-3 text-sm font-bold text-gray-900">{cat.nombre}</td>
+                        <td className="px-4 py-3 text-xs text-gray-500 max-w-xs truncate">{cat.descripcion || 'Sin descripción'}</td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button onClick={() => abrirModalCategoriaEditar(cat)} className="p-2 text-blue-600 bg-blue-50 rounded-xl hover:bg-blue-100 transition">
+                              <FiEdit2 size={14} />
+                            </button>
+                            <button onClick={() => eliminarCategoria(cat)} className="p-2 text-red-600 bg-red-50 rounded-xl hover:bg-red-100 transition">
+                              <FiTrash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {categorias.length === 0 && (
+                      <tr>
+                        <td colSpan="4" className="text-center py-6 text-sm text-gray-400">No hay categorías registradas en la base de datos. Se están usando las categorías por defecto.</td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>

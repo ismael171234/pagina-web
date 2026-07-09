@@ -81,89 +81,16 @@ const opGaseosa = () => ({
 })
 const complementos = { titulo: 'Adicionales', subtitulo: 'Opcional', items: AD }
 
-export const CARTA = {
-  Hamburguesas: {
-    color: '#e63946', desc: 'Artesanales · Jugosas · Irresistibles',
-    productos: [
-      { id:1,  nombre:'La Lorna',      precio:'S/ 11.00', imagen:hamburguesaclasica1, tag:'Clasica',  desc:'Pan, carne, lechuga, tomate y mayonesa',                 opciones: opTamano(hamburguesaclasica1), complementos },
-      { id:2,  nombre:'La Ruca',       precio:'S/ 14.00', imagen:hamburguesaclasica2, tag:'Popular',  desc:'Doble queso, cebolla caramelizada y salsa especial',      opciones: opTamano(hamburguesaclasica2), complementos },
-      { id:3,  nombre:'La Asolapada',  precio:'S/ 14.00', imagen:hamburguesaroyal,    tag:'Especial', desc:'Con tocino, huevo frito y salsa secreta de La Esquina',   opciones: opTamano(hamburguesaroyal),    complementos },
-      { id:4,  nombre:'Don C',         precio:'S/ 17.00', imagen:hamburguesaperuana,  tag:'Premium',  desc:'La burger mas grande: doble carne, triple queso y mas',   opciones: opTamano(hamburguesaperuana),  complementos },
-    ],
-  },
-  Alitas: {
-    color: '#f4a261', desc: '6 sabores · Crujientes · Para compartir',
-    productos: [
-      { id:5,  nombre:'Alitas Acevichadas',   precio:'S/ 25.00', imagen:alitasAcevichadas, tag:'Especial', desc:'Marinadas en leche de tigre con aji amarillo', opciones: opPorcion(alitasAcevichadas), complementos },
-      { id:6,  nombre:'Alitas BBQ',           precio:'S/ 25.00', imagen:alitasBBQ,         tag:'Favorito', desc:'Banadas en BBQ ahumado caramelizado',          opciones: opPorcion(alitasBBQ),         complementos },
-      { id:7,  nombre:'Alitas Maracuya',      precio:'S/ 25.00', imagen:alitasMaracuya,    tag:'Tropical', desc:'Glaseado tropical de maracuya brillante',      opciones: opPorcion(alitasMaracuya),    complementos },
-      { id:8,  nombre:'Alitas Mozarella',     precio:'S/ 25.00', imagen:alitasMozarella,   tag:'Cremoso',  desc:'Con mozzarella derretida y salsa especial',    opciones: opPorcion(alitasMozarella),   complementos },
-      { id:9,  nombre:'Alitas Teriyaki',      precio:'S/ 25.00', imagen:alitasTeriyaki,    tag:'Oriental', desc:'Salsa teriyaki japonesa brillante y dulce',    opciones: opPorcion(alitasTeriyaki),    complementos },
-      { id:10, nombre:'Alitas Honey Mustard', precio:'S/ 25.00', imagen:honeyMustard,      tag:'Dorado',   desc:'Glaseado de miel y mostaza irresistible',      opciones: opPorcion(honeyMustard),      complementos },
-      { id:11, nombre:'Ronda Mini 12un x4',   precio:'S/ 39.00', imagen:rondaMini,         tag:'Para 2',   desc:'12 alitas con 4 sabores a elegir',             opciones:{ titulo:'Elige tus 4 sabores', subtitulo:'Hasta 4 opciones', items:[{nombre:'BBQ'},{nombre:'Acevichadas'},{nombre:'Maracuya'},{nombre:'Teriyaki'},{nombre:'Honey Mustard'},{nombre:'Mozarella'}]}, complementos },
-      { id:12, nombre:'Ronda Fresh 16un x4',  precio:'S/ 49.00', imagen:rondaFresh,        tag:'Para 3',   desc:'16 alitas con 4 sabores a elegir',             opciones:{ titulo:'Elige tus 4 sabores', subtitulo:'Hasta 4 opciones', items:[{nombre:'BBQ'},{nombre:'Acevichadas'},{nombre:'Maracuya'},{nombre:'Teriyaki'},{nombre:'Honey Mustard'},{nombre:'Mozarella'}]}, complementos },
-      { id:13, nombre:'Ronda Big 20un x4',    precio:'S/ 59.00', imagen:rondaBig,          tag:'Grupos',   desc:'20 alitas con 4 sabores a elegir',             opciones:{ titulo:'Elige tus 4 sabores', subtitulo:'Hasta 4 opciones', items:[{nombre:'BBQ'},{nombre:'Acevichadas'},{nombre:'Maracuya'},{nombre:'Teriyaki'},{nombre:'Honey Mustard'},{nombre:'Mozarella'}]}, complementos },
-    ],
-  },
-  'Pollo a la Brasa': {
-    color: '#e63946', desc: 'A la lena · Jugoso · Con papas y ensalada',
-    productos: [
-      { id:14, nombre:'Pollo Entero',         precio:'S/ 57.00', imagen:polloEntero,   tag:'Familiar',   desc:'Pollo entero con ensalada y papas fritas',   opciones: opAcomp(), complementos },
-      { id:15, nombre:'1/2 Pollo a la Brasa', precio:'S/ 33.00', imagen:mediopollo,    tag:'Popular',    desc:'Media pollo con ensalada y papas fritas',    opciones: opAcomp(), complementos },
-      { id:16, nombre:'1/4 Pollo a la Brasa', precio:'S/ 20.00', imagen:cuartoPollo,   tag:'Personal',   desc:'Cuarto de pollo con ensalada y papas fritas', opciones: opAcomp(), complementos },
-      { id:17, nombre:'1/8 Pollo a la Brasa', precio:'S/ 12.00', imagen:unoctavoPollo, tag:'Individual', desc:'Presa de pollo con ensalada y papas fritas',  opciones: opAcomp(), complementos },
-    ],
-  },
-  'Salchis Salchis': {
-    color: '#e63946', desc: 'Papas · Chorizo · Pollo · Irresistibles',
-    productos: [
-      { id:18, nombre:'Salchi Cardiaca',  precio:'S/ 22.00', imagen:salchiPapas,  tag:'Especial', desc:'Chorizo, salchicha, carne, queso, huevo y platano',  opciones:{ titulo:'Elige el tamano', subtitulo:'Elige 1 opcion', items:[{nombre:'Regular'},{nombre:'Grande'}]}, complementos },
-      { id:19, nombre:'Salchi Brasa 1/4', precio:'S/ 26.00', imagen:salchiCuarto, tag:'Popular',  desc:'1/4 pollo brasa, chorizo, salchicha y papas fritas', opciones:{ titulo:'Elige el tamano', subtitulo:'Elige 1 opcion', items:[{nombre:'Regular'},{nombre:'Grande'}]}, complementos },
-      { id:20, nombre:'Salchi Brasa 1/8', precio:'S/ 16.00', imagen:salchiPapas,  tag:'Personal', desc:'1/8 pollo brasa, chorizo, salchicha y papas fritas', opciones:{ titulo:'Elige el tamano', subtitulo:'Elige 1 opcion', items:[{nombre:'Regular'},{nombre:'Grande'}]}, complementos },
-      { id:21, nombre:'Salchi Clasica',   precio:'S/ 12.00', imagen:salchiClasica,tag:'Clasica',  desc:'Chorizo, salchicha y papas fritas',                  opciones:{ titulo:'Elige el tamano', subtitulo:'Elige 1 opcion', items:[{nombre:'Regular'},{nombre:'Grande'}]}, complementos },
-    ],
-  },
-  Especiales: {
-    color: '#7209b7', desc: 'Platos peruanos · Sabores de siempre',
-    productos: [
-      { id:22, nombre:'Aguadito',              precio:'S/ 6.00',  imagen:especialAguadito,   tag:'Clasico',  desc:'Caldo verde con pollo, arroz y hierbas frescas', opciones:{ titulo:'Elige el tamano', subtitulo:'Elige 1 opcion', items:[{nombre:'Personal'},{nombre:'Grande'}]}, complementos },
-      { id:23, nombre:'Anticuchos',            precio:'S/ 18.00', imagen:especialAnticucho,  tag:'Popular',  desc:'A la parrilla con ensalada y papas fritas',      opciones:{ titulo:'Elige la porcion', subtitulo:'Elige 1 opcion', items:[{nombre:'2 palitos'},{nombre:'4 palitos'}]}, complementos },
-      { id:24, nombre:'Arroz Chaufa de Pollo', precio:'S/ 10.00', imagen:especialChaufa,     tag:'Nuevo',    desc:'Con pollo, brotes de soya y cebolla china',      opciones:{ titulo:'Elige el tamano', subtitulo:'Elige 1 opcion', items:[{nombre:'Personal'},{nombre:'Grande'}]}, complementos },
-      { id:25, nombre:'Mollejitas',            precio:'S/ 16.00', imagen:especialMollejitas, tag:'Especial', desc:'A la parrilla con ensalada y papas fritas',      opciones:{ titulo:'Elige la porcion', subtitulo:'Elige 1 opcion', items:[{nombre:'Regular'},{nombre:'Grande'}]}, complementos },
-    ],
-  },
-  Combos: {
-    color: '#3a86ff', desc: 'Ahorra mas · Todo incluido · Gaseosa gratis',
-    productos: [
-      { id:26, nombre:'Combo Anticuchos', precio:'S/ 35.90', imagen:comboanticuchos, tag:'Ahorro', desc:'Anticuchos + papas fritas + gaseosa personal', opciones: opGaseosa(), complementos },
-      { id:27, nombre:'Combo Alitas',     precio:'S/ 32.90', imagen:comboalitas,     tag:'Ahorro', desc:'Alitas crujientes + papas fritas + gaseosa',   opciones: opGaseosa(), complementos },
-      { id:28, nombre:'Combo Nuggets',    precio:'S/ 28.90', imagen:combonuggets,    tag:'Ahorro', desc:'Nuggets dorados + papas fritas + gaseosa',     opciones: opGaseosa(), complementos },
-      { id:29, nombre:'Combo Pollo BBQ',  precio:'S/ 34.90', imagen:combopollobbq,   tag:'Ahorro', desc:'Pollo a la parrilla BBQ + papas + gaseosa',    opciones: opGaseosa(), complementos },
-    ],
-  },
-  Bebidas: {
-    color: '#00b4d8', desc: 'Frias · Naturales · Refrescantes',
-    productos: [
-      { id:30, nombre:'Coca Cola',     precio:'S/ 5.90', imagen:cocacola,    tag:'Gaseosa', desc:'Botella personal 500ml bien fria',        opciones:{ titulo:'Elige el tamano', subtitulo:'Elige 1 opcion', items:[{nombre:'Personal 500ml',imagen:cocacola},{nombre:'Familiar 1.5L',imagen:cocacola}]}},
-      { id:31, nombre:'Fanta',         precio:'S/ 5.90', imagen:fanta,       tag:'Gaseosa', desc:'Botella personal 500ml bien fria',        opciones:{ titulo:'Elige el tamano', subtitulo:'Elige 1 opcion', items:[{nombre:'Personal 500ml',imagen:fanta},{nombre:'Familiar 1.5L',imagen:fanta}]}},
-      { id:32, nombre:'Inca Kola',     precio:'S/ 5.90', imagen:inkacola,    tag:'Gaseosa', desc:'La bebida de sabor nacional',             opciones:{ titulo:'Elige el tamano', subtitulo:'Elige 1 opcion', items:[{nombre:'Personal 500ml',imagen:inkacola},{nombre:'Familiar 1.5L',imagen:inkacola}]}},
-      { id:33, nombre:'Sprint',        precio:'S/ 4.90', imagen:sprint,      tag:'Gaseosa', desc:'Botella personal 500ml bien fria',        opciones:{ titulo:'Elige el tamano', subtitulo:'Elige 1 opcion', items:[{nombre:'Personal 500ml',imagen:sprint},{nombre:'Familiar 1.5L',imagen:sprint}]}},
-      { id:34, nombre:'Maracuya',      precio:'S/ 6.50', imagen:maracuya,    tag:'Natural', desc:'Jugo natural de maracuya fresco del dia', opciones:{ titulo:'Elige el tamano', subtitulo:'Elige 1 opcion', items:[{nombre:'Personal',imagen:maracuya},{nombre:'Grande',imagen:maracuya}]}},
-      { id:35, nombre:'Chicha Morada', precio:'S/ 6.50', imagen:chichamorada,tag:'Natural', desc:'Preparada artesanalmente',                opciones:{ titulo:'Elige el tamano', subtitulo:'Elige 1 opcion', items:[{nombre:'Personal',imagen:chichamorada},{nombre:'Grande',imagen:chichamorada}]}},
-    ],
-  },
-  Postres: {
-    color: '#f72585', desc: 'Dulces · Cremosos · El cierre perfecto',
-    productos: [
-      { id:36, nombre:'Arroz con Leche',     precio:'S/ 8.90',  imagen:arrozconleche, tag:'Clasico',  desc:'Cremoso con canela y leche evaporada',      opciones:{ titulo:'Elige el tamano', subtitulo:'Elige 1 opcion', items:[{nombre:'Personal',imagen:arrozconleche},{nombre:'Grande',imagen:arrozconleche}]}},
-      { id:37, nombre:'Brownie con Helado',  precio:'S/ 12.90', imagen:brownie,       tag:'Favorito', desc:'Tibio con bola de helado de vainilla',       opciones:{ titulo:'Elige el sabor', subtitulo:'Elige 1 opcion', items:[{nombre:'Vainilla',imagen:brownie},{nombre:'Chocolate',imagen:brownie},{nombre:'Fresa',imagen:brownie}]}},
-      { id:38, nombre:'Cheesecake de Fresa', precio:'S/ 11.90', imagen:cheesecake,    tag:'Postre',   desc:'Cremoso con coulis de fresa natural',        opciones:{ titulo:'Elige el tamano', subtitulo:'Elige 1 opcion', items:[{nombre:'Personal',imagen:cheesecake},{nombre:'Grande',imagen:cheesecake}]}},
-      { id:39, nombre:'Torta de Chocolate',  precio:'S/ 10.90', imagen:torta,         tag:'Postre',   desc:'Humeda con ganache de chocolate',            opciones:{ titulo:'Elige el tamano', subtitulo:'Elige 1 opcion', items:[{nombre:'Personal',imagen:torta},{nombre:'Grande',imagen:torta}]}},
-    ],
-  },
-}
-
-const CATEGORIAS = Object.keys(CARTA)
+const DEFAULT_CATEGORIES = [
+  { nombre: 'Hamburguesas', color: '#e63946', descripcion: 'Artesanales · Jugosas · Irresistibles' },
+  { nombre: 'Alitas', color: '#f4a261', descripcion: '6 sabores · Crujientes · Para compartir' },
+  { nombre: 'Pollo a la Brasa', color: '#e63946', descripcion: 'A la lena · Jugoso · Con papas y ensalada' },
+  { nombre: 'Salchis Salchis', color: '#e63946', descripcion: 'Papas · Chorizo · Pollo · Irresistibles' },
+  { nombre: 'Especiales', color: '#7209b7', descripcion: 'Platos peruanos · Sabores de siempre' },
+  { nombre: 'Combos', color: '#3a86ff', descripcion: 'Ahorra mas · Todo incluido · Gaseosa gratis' },
+  { nombre: 'Bebidas', color: '#00b4d8', descripcion: 'Frias · Naturales · Refrescantes' },
+  { nombre: 'Postres', color: '#f72585', descripcion: 'Dulces · Cremosos · El cierre perfecto' }
+]
 
 // Imagen de respaldo cuando un producto de Supabase no trae foto
 const IMG_PLACEHOLDER =
@@ -172,23 +99,141 @@ const IMG_PLACEHOLDER =
     `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"><rect width="100%" height="100%" fill="#1a1a1a"/></svg>`
   )
 
-// Convierte un producto guardado en Supabase al mismo formato que usan los productos fijos
-function mapProductoSupabase(p, imagenFallback) {
-  const imagen = p.imagen_url || p.imagen || imagenFallback || IMG_PLACEHOLDER
+// Helper to dynamically assign options and complements based on category and product name
+const getOptionsAndComplements = (p, imagen) => {
+  const nombre = p.nombre || ''
+  const categoria = p.categoria || ''
+
+  // Custom configurations for specific items
+  if (nombre.includes('Ronda')) {
+    return {
+      opciones: {
+        titulo: 'Elige tus 4 sabores',
+        subtitulo: 'Hasta 4 opciones',
+        items: [
+          { nombre: 'BBQ' },
+          { nombre: 'Acevichadas' },
+          { nombre: 'Maracuya' },
+          { nombre: 'Teriyaki' },
+          { nombre: 'Honey Mustard' },
+          { nombre: 'Mozarella' }
+        ]
+      },
+      complementos
+    }
+  }
+
+  if (nombre === 'Anticuchos') {
+    return {
+      opciones: {
+        titulo: 'Elige la porción',
+        subtitulo: 'Elige 1 opción',
+        items: [{ nombre: '2 palitos' }, { nombre: '4 palitos' }]
+      },
+      complementos
+    }
+  }
+
+  if (nombre === 'Brownie con Helado') {
+    return {
+      opciones: {
+        titulo: 'Elige el sabor',
+        subtitulo: 'Elige 1 opción',
+        items: [{ nombre: 'Vainilla' }, { nombre: 'Chocolate' }, { nombre: 'Fresa' }]
+      }
+    }
+  }
+
+  // Fallback to category defaults
+  switch (categoria) {
+    case 'Hamburguesas':
+      return { opciones: opTamano(imagen), complementos }
+    case 'Alitas':
+      return { opciones: opPorcion(imagen), complementos }
+    case 'Pollo a la Brasa':
+      return { opciones: opAcomp(), complementos }
+    case 'Salchis Salchis':
+      return {
+        opciones: {
+          titulo: 'Elige el tamaño',
+          subtitulo: 'Elige 1 opción',
+          items: [{ nombre: 'Regular' }, { nombre: 'Grande' }]
+        },
+        complementos
+      }
+    case 'Especiales':
+      return {
+        opciones: {
+          titulo: 'Elige la porción/tamaño',
+          subtitulo: 'Elige 1 opción',
+          items: [{ nombre: 'Regular' }, { nombre: 'Grande' }]
+        },
+        complementos
+      }
+    case 'Combos':
+      return { opciones: opGaseosa(), complementos }
+    case 'Bebidas':
+      return {
+        opciones: {
+          titulo: 'Elige el tamaño',
+          subtitulo: 'Elige 1 opción',
+          items: [{ nombre: 'Personal 500ml', imagen }, { nombre: 'Familiar 1.5L', imagen }]
+        }
+      }
+    case 'Postres':
+      return {
+        opciones: {
+          titulo: 'Elige el tamaño',
+          subtitulo: 'Elige 1 opción',
+          items: [{ nombre: 'Personal', imagen }, { nombre: 'Grande', imagen }]
+        }
+      }
+    default:
+      return {
+        opciones: {
+          titulo: 'Elige una opción',
+          subtitulo: 'Elige 1 opción',
+          items: [{ nombre: 'Regular' }]
+        }
+      }
+  }
+}
+
+// Convierte un producto guardado en Supabase al formato que usa el frontend
+function mapProductoDatabase(p) {
+  const imagen = p.imagen_url || IMG_PLACEHOLDER
   const precio =
     typeof p.precio === 'number'
       ? `S/ ${p.precio.toFixed(2)}`
       : (p.precio || 'S/ 0.00')
 
+  const { opciones, complementos: comps } = getOptionsAndComplements(p, imagen)
+
+  const finalOpciones = p.opciones ? (
+    p.opciones.tipo === 'estatico' ? null : {
+      tipo: p.opciones.tipo,
+      max_seleccion: p.opciones.max_seleccion,
+      titulo: p.opciones.titulo || 'Elige una opción',
+      subtitulo: p.opciones.tipo === 'sabores' ? `Elige hasta ${p.opciones.max_seleccion} sabores` : 'Elige 1 opción',
+      items: p.opciones.items?.map(item => ({
+        nombre: item.nombre,
+        extra: parseFloat(item.extra) || 0,
+        imagen: item.imagen || imagen
+      })) || []
+    }
+  ) : opciones
+
   return {
-    id: `sb-${p.id}`,
+    id: p.id,
     nombre: p.nombre || 'Producto sin nombre',
     precio,
     imagen,
     tag: p.tag || 'Nuevo',
     desc: p.descripcion || p.desc || '',
-    opciones: p.opciones || opTamano(imagen),
-    complementos: p.complementos || complementos,
+    opciones: finalOpciones,
+    complementos: p.categoria === 'Bebidas' || p.categoria === 'Postres' ? undefined : comps,
+    categoria: p.categoria,
+    disponible: p.disponible
   }
 }
 
@@ -245,53 +290,69 @@ function ProductCard({ producto, color, index, onSelect }) {
 }
 
 function Menu() {
-  const [categoriaActiva, setCategoriaActiva] = useState('Hamburguesas')
+  const [categoriaActiva, setCategoriaActiva] = useState('')
   const [selectedProduct, setSelectedProduct] = useState(null)
-  const [productosSupabase, setProductosSupabase] = useState([])
+  const [categorias, setCategorias] = useState([])
+  const [productos, setProductos] = useState([])
   const tabsRef   = useRef(null)
   const activoRef = useRef(null)
 
   useEffect(() => {
-    const fetchProductos = async () => {
-      const { data, error } = await supabase
+    const fetchData = async () => {
+      // 1. Obtener categorias
+      const { data: catData } = await supabase
+        .from('categorias')
+        .select('*')
+        .order('id', { ascending: true })
+      
+      const listaCats = catData && catData.length > 0 ? catData : DEFAULT_CATEGORIES
+      setCategorias(listaCats)
+
+      // 2. Obtener productos
+      const { data: prodData } = await supabase
         .from('productos')
         .select('*')
         .eq('disponible', true)
         .order('creado_en', { ascending: false })
-      if (error) {
-        console.error('Error al traer productos de Supabase:', error)
-        return
-      }
-      if (data) setProductosSupabase(data)
-    }
-    fetchProductos()
 
-    // Se actualiza en tiempo real cuando el admin agrega, edita o borra un producto
-    const sub = supabase
-      .channel('menu-productos')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'productos' }, fetchProductos)
+      if (prodData) setProductos(prodData)
+
+      // Seleccionar la primera por defecto si no hay activa
+      if (listaCats.length > 0) {
+        setCategoriaActiva(listaCats[0].nombre)
+      }
+    }
+    fetchData()
+
+    // Suscribirse en tiempo real
+    const chanCats = supabase.channel('menu-realtime-cats')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'categorias' }, fetchData)
+      .subscribe()
+    const chanProds = supabase.channel('menu-realtime-prods')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'productos' }, fetchData)
       .subscribe()
 
-    return () => supabase.removeChannel(sub)
+    return () => {
+      supabase.removeChannel(chanCats)
+      supabase.removeChannel(chanProds)
+    }
   }, [])
 
-  // Combina la carta fija con los productos que el admin agrega desde Supabase,
-  // agrupados por la misma categoría.
   const cartaCombinada = useMemo(() => {
     const combinada = {}
-    CATEGORIAS.forEach((cat) => {
-      const fijos = CARTA[cat].productos
-      const dinamicos = productosSupabase
-        .filter((p) => p.categoria === cat)
-        .map((p) => mapProductoSupabase(p, fijos[0]?.imagen))
+    categorias.forEach((cat) => {
+      const prodsFiltrados = productos
+        .filter((p) => p.categoria === cat.nombre)
+        .map(mapProductoDatabase)
 
-      combinada[cat] = {
-        ...CARTA[cat],
-        productos: [...fijos, ...dinamicos],
+      combinada[cat.nombre] = {
+        color: cat.color || '#e63946',
+        desc: cat.descripcion || '',
+        productos: prodsFiltrados,
       }
     })
     return combinada
-  }, [productosSupabase])
+  }, [categorias, productos])
 
   const catData = cartaCombinada[categoriaActiva]
   const color   = catData?.color || '#e63946'
@@ -302,18 +363,7 @@ function Menu() {
     }
   }, [categoriaActiva])
 
-  const productosNuevos = productosSupabase
-    .filter(p => p.categoria === categoriaActiva)
-    .map(p => ({
-      ...p,
-      imagen: p.imagen_url,
-      precio: `S/ ${parseFloat(p.precio).toFixed(2)}`,
-      opciones: { titulo: 'Elige el tamaño', subtitulo: 'Elige 1 opción', items: [{ nombre: 'Personal' }, { nombre: 'Grande' }] },
-      complementos,
-    }))
-
-  const productosActuales = catData ? [...catData.productos, ...productosNuevos] : productosNuevos
-
+  const productosActuales = catData?.productos || []
   const productoDestacado = productosActuales[0]
   const restoProductos    = productosActuales.slice(1)
 
@@ -353,17 +403,17 @@ function Menu() {
               </div>
             </div>
             <div ref={tabsRef} className="tabs-scroll flex gap-2 overflow-x-auto pb-4">
-              {CATEGORIAS.map((cat) => {
-                const activo = cat === categoriaActiva
-                const data   = cartaCombinada[cat]
+              {categorias.map((cat) => {
+                const activo = cat.nombre === categoriaActiva
+                const data   = cartaCombinada[cat.nombre]
                 return (
-                  <button key={cat} ref={activo ? activoRef : null}
-                    onClick={() => setCategoriaActiva(cat)}
+                  <button key={cat.nombre} ref={activo ? activoRef : null}
+                    onClick={() => setCategoriaActiva(cat.nombre)}
                     className="flex-shrink-0 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wide transition-all duration-200 border"
                     style={activo
                       ? { background: data.color, color: '#fff', borderColor: data.color, boxShadow: `0 4px 20px ${data.color}44` }
                       : { background: 'rgba(255,255,255,0.04)', color: '#6b7280', borderColor: 'rgba(255,255,255,0.08)' }
-                    }>{cat}</button>
+                    }>{cat.nombre}</button>
                 )
               })}
             </div>
@@ -409,13 +459,7 @@ function Menu() {
             </>
           )}
 
-          {productosNuevos.length > 0 && (
-            <div className="mt-4 flex items-center gap-3 mb-2">
-              <div className="h-[2px] w-5 rounded-full bg-green-500" />
-              <p className="text-green-500 text-[11px] font-bold uppercase tracking-widest">Nuevos en la carta</p>
-              <div className="h-[1px] flex-1 bg-white/5 rounded-full" />
-            </div>
-          )}
+
 
           <div className="mt-8 rounded-2xl bg-[#0d1f12] border border-green-900/40 px-5 py-4 flex items-center justify-between gap-4">
             <div>

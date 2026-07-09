@@ -7,6 +7,7 @@ export default function ProductConfiguratorModal({ producto, onClose, color }) {
 
   const [cantidad, setCantidad]       = useState(1)
   const [opcion, setOpcion]           = useState(null)
+  const [opcionesSeleccionadas, setOpcionesSeleccionadas] = useState([])
   const [adicionales, setAdicionales] = useState([])
   const [agregado, setAgregado]       = useState(false)
 
@@ -17,9 +18,18 @@ export default function ProductConfiguratorModal({ producto, onClose, color }) {
     ? parseFloat(producto.precio.replace('S/ ', ''))
     : (producto.precio || 0)
 
+  const esMultiselect = producto.opciones?.tipo === 'sabores' && producto.opciones?.max_seleccion > 1
+  const maxSeleccion = producto.opciones?.max_seleccion || 1
+
+  // Calcular extra por variación de tamaño
+  const optionExtra = producto.opciones && !esMultiselect
+    ? (producto.opciones.items.find(i => i.nombre === opcion)?.extra || 0)
+    : 0
+
   const extraSum = adicionales.reduce((s, a) => s + a.extra, 0)
-  const total = ((base + extraSum) * cantidad).toFixed(2)
-  const opcionOK = !producto.opciones || !!opcion
+  const total = ((base + optionExtra + extraSum) * cantidad).toFixed(2)
+  
+  const opcionOK = !producto.opciones || (esMultiselect ? opcionesSeleccionadas.length > 0 : !!opcion)
 
   // Agregar una unidad de adicional
   const addAd = (item) => setAdicionales(prev => [...prev, item])
@@ -31,14 +41,30 @@ export default function ProductConfiguratorModal({ producto, onClose, color }) {
   })
   const countAd = (nombre) => adicionales.filter(a => a.nombre === nombre).length
 
+  // Manejo de multiselección de sabores
+  const toggleSabor = (nombre) => {
+    setOpcionesSeleccionadas(prev => {
+      if (prev.includes(nombre)) {
+        return prev.filter(x => x !== nombre)
+      }
+      if (prev.length >= maxSeleccion) {
+        // Reemplazar el primero si supera el max
+        return [...prev.slice(1), nombre]
+      }
+      return [...prev, nombre]
+    })
+  }
+
   const handleAgregar = () => {
     if (!opcionOK) return
     const comp = adicionales.length
       ? { nombre: adicionales.map(a => a.nombre).join(', '), extra: extraSum }
       : null
     
+    const opcionFinal = esMultiselect ? opcionesSeleccionadas.join(', ') : opcion
+    
     // We pass producto object, cantidad, opcion, comp
-    agregarProducto(producto, cantidad, opcion, comp)
+    agregarProducto(producto, cantidad, opcionFinal, comp)
     setAgregado(true)
     setTimeout(() => {
       onClose()
@@ -97,30 +123,45 @@ export default function ProductConfiguratorModal({ producto, onClose, color }) {
                 <div className="flex items-center justify-between px-4 py-3 bg-white/5 border-b border-white/5">
                   <div>
                     <p className="text-xs font-bold text-white uppercase tracking-wider">{producto.opciones.titulo}</p>
-                    <p className="text-[10px] text-gray-400 font-semibold">{producto.opciones.subtitulo}</p>
+                    <p className="text-[10px] text-gray-400 font-semibold">
+                      {esMultiselect ? `Elige hasta ${maxSeleccion} opciones` : producto.opciones.subtitulo}
+                    </p>
                   </div>
-                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${opcion ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
-                    {opcion ? 'Completado' : 'Requerido'}
+                  <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${opcionOK ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
+                    {opcionOK ? 'Completado' : 'Requerido'}
                   </span>
                 </div>
                 <div className="divide-y divide-white/5">
                   {producto.opciones.items.map((item) => {
-                    const selected = opcion === item.nombre
+                    const selected = esMultiselect
+                      ? opcionesSeleccionadas.includes(item.nombre)
+                      : opcion === item.nombre
                     return (
                       <div
                         key={item.nombre}
-                        onClick={() => setOpcion(item.nombre)}
+                        onClick={() => esMultiselect ? toggleSabor(item.nombre) : setOpcion(item.nombre)}
                         className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-white/5 transition"
                       >
                         <div className="flex items-center gap-3">
                           {item.imagen && (
                             <img src={item.imagen} alt="" className="w-10 h-10 object-cover rounded-lg border border-white/10" />
                           )}
-                          <p className="text-xs font-bold text-white">{item.nombre}</p>
+                          <div>
+                            <p className="text-xs font-bold text-white">{item.nombre}</p>
+                            {item.extra > 0 && (
+                              <p className="text-[10px] text-red-400 font-bold mt-0.5">+ S/ {item.extra.toFixed(2)}</p>
+                            )}
+                          </div>
                         </div>
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${selected ? 'border-red-500' : 'border-gray-600'}`}>
-                          {selected && <div className="w-2.5 h-2.5 rounded-full bg-red-500" />}
-                        </div>
+                        {esMultiselect ? (
+                          <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all ${selected ? 'border-red-500 bg-red-600' : 'border-gray-600'}`}>
+                            {selected && <FiCheck size={12} className="text-white" />}
+                          </div>
+                        ) : (
+                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${selected ? 'border-red-500' : 'border-gray-600'}`}>
+                            {selected && <div className="w-2.5 h-2.5 rounded-full bg-red-500" />}
+                          </div>
+                        )}
                       </div>
                     )
                   })}
