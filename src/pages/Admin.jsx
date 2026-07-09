@@ -152,7 +152,12 @@ function Admin() {
   }
 
   const cambiarEstado = async (id, estado) => {
-    await supabase.from('pedidos').update({ estado }).eq('id', id)
+    try {
+      await supabase.from('pedidos').update({ estado }).eq('id', id)
+      fetchPedidos()
+    } catch (err) {
+      console.error('Error al cambiar estado:', err)
+    }
   }
 
   const imprimirVoucher = (pedido) => {
@@ -240,6 +245,7 @@ function Admin() {
   const enviarACocina = async (pedido) => {
     try {
       await supabase.from('pedidos').update({ estado: 'preparando' }).eq('id', pedido.id)
+      fetchPedidos()
       imprimirVoucher(pedido)
     } catch (err) {
       console.error(err)
