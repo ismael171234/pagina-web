@@ -304,7 +304,7 @@ function Menu() {
         .from('categorias')
         .select('*')
         .order('id', { ascending: true })
-      
+
       const listaCats = catData && catData.length > 0 ? catData : DEFAULT_CATEGORIES
       setCategorias(listaCats)
 
@@ -319,7 +319,7 @@ function Menu() {
 
       // Seleccionar la primera por defecto si no hay activa
       if (listaCats.length > 0) {
-        setCategoriaActiva(listaCats[0].nombre)
+        setCategoriaActiva((prev) => prev || listaCats[0].nombre)
       }
     }
     fetchData()
@@ -458,8 +458,6 @@ function Menu() {
               </div>
             </>
           )}
-
-
 
           <div className="mt-8 rounded-2xl bg-[#0d1f12] border border-green-900/40 px-5 py-4 flex items-center justify-between gap-4">
             <div>
