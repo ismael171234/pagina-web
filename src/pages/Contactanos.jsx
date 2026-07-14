@@ -1,6 +1,6 @@
 // src/pages/Contactanos.jsx
-import { useState } from "react";
-import { FiUser, FiMail, FiPhone, FiMessageSquare, FiUpload, FiCheck } from "react-icons/fi";
+import { useState, useRef, useEffect } from "react";
+import { FiUser, FiMail, FiPhone, FiMessageSquare, FiUpload, FiCheck, FiChevronDown } from "react-icons/fi";
 
 const TEMAS = [
   "Consulta general",
@@ -48,6 +48,14 @@ export default function Contactanos() {
     if (!acepta) return;
     if (esTrabajo && !archivo) {
       alert("Por favor adjunta tu CV para postular.");
+      return;
+    }
+    if (!form.formaPedido) {
+      alert("Por favor indica cómo realizaste tu pedido.");
+      return;
+    }
+    if (!form.tema) {
+      alert("Por favor elige el tema de tu mensaje.");
       return;
     }
 
@@ -156,32 +164,18 @@ export default function Contactanos() {
           <Seccion numero="02" titulo="Cuéntanos más" icon={<FiMessageSquare />}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
               <Campo label="¿Cómo realizaste tu pedido?" required>
-                <select
-                  name="formaPedido"
+                <Dropdown
+                  options={FORMA_PEDIDO}
                   value={form.formaPedido}
-                  onChange={handleChange}
-                  required
-                  className="input-dark"
-                >
-                  <option value="" disabled>Selecciona una opción</option>
-                  {FORMA_PEDIDO.map((op) => (
-                    <option key={op} value={op}>{op}</option>
-                  ))}
-                </select>
+                  onChange={(val) => setForm({ ...form, formaPedido: val })}
+                />
               </Campo>
               <Campo label="Elige el tema de tu mensaje" required>
-                <select
-                  name="tema"
+                <Dropdown
+                  options={TEMAS}
                   value={form.tema}
-                  onChange={handleChange}
-                  required
-                  className="input-dark"
-                >
-                  <option value="" disabled>Selecciona una opción</option>
-                  {TEMAS.map((op) => (
-                    <option key={op} value={op}>{op}</option>
-                  ))}
-                </select>
+                  onChange={(val) => setForm({ ...form, tema: val })}
+                />
               </Campo>
             </div>
             <Campo label="Tu mensaje">
@@ -250,6 +244,66 @@ export default function Contactanos() {
           </div>
         </form>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Dropdown personalizado (reemplaza el <select> nativo) para tener control
+ * total del estilo: fondo oscuro, texto en negrita y resaltado en rojo
+ * acorde a la marca, en lugar del azul/gris por defecto del navegador.
+ */
+function Dropdown({ options, value, onChange, placeholder = "Selecciona una opción" }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (ref.current && !ref.current.contains(e.target)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className={`input-dark font-bold flex items-center justify-between w-full text-left ${
+          value ? "text-white" : "text-gray-500"
+        }`}
+      >
+        <span>{value || placeholder}</span>
+        <FiChevronDown
+          className={`text-gray-400 transition-transform ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {open && (
+        <ul className="absolute z-20 mt-2 w-full bg-gray-900 border border-gray-700 rounded-xl shadow-2xl shadow-black/60 overflow-hidden max-h-64 overflow-y-auto">
+          {options.map((op) => (
+            <li key={op}>
+              <button
+                type="button"
+                onClick={() => {
+                  onChange(op);
+                  setOpen(false);
+                }}
+                className={`w-full text-left px-4 py-3 font-bold text-sm transition-colors ${
+                  value === op
+                    ? "bg-red-700 text-white"
+                    : "text-gray-200 hover:bg-red-700/20 hover:text-red-400"
+                }`}
+              >
+                {op}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

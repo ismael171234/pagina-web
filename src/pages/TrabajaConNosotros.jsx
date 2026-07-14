@@ -1,6 +1,6 @@
 // src/pages/TrabajaConNosotros.jsx
-import { useState } from "react";
-import { FiUser, FiMail, FiPhone, FiBriefcase, FiUpload, FiCheck } from "react-icons/fi";
+import { useState, useRef, useEffect } from "react";
+import { FiUser, FiMail, FiPhone, FiBriefcase, FiUpload, FiCheck, FiChevronDown } from "react-icons/fi";
 import InstitutionalLayout from "../components/InstitutionalLayout";
 
 const AREAS = [
@@ -45,6 +45,10 @@ export default function TrabajaConNosotros() {
     if (!acepta) return;
     if (!archivo) {
       alert("Por favor adjunta tu CV para postular.");
+      return;
+    }
+    if (!form.area) {
+      alert("Por favor selecciona un área de interés.");
       return;
     }
 
@@ -146,18 +150,10 @@ export default function TrabajaConNosotros() {
         <Seccion numero="02" titulo="Área de interés" icon={<FiBriefcase />}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
             <Campo label="¿En qué área te gustaría trabajar?" required>
-              <select
-                name="area"
+              <AreaDropdown
                 value={form.area}
-                onChange={handleChange}
-                required
-                className="input-dark"
-              >
-                <option value="" disabled>Selecciona una opción</option>
-                {AREAS.map((op) => (
-                  <option key={op} value={op}>{op}</option>
-                ))}
-              </select>
+                onChange={(val) => setForm({ ...form, area: val })}
+              />
             </Campo>
           </div>
           <Campo label="Cuéntanos sobre tu experiencia">
@@ -220,6 +216,61 @@ export default function TrabajaConNosotros() {
         </div>
       </form>
     </InstitutionalLayout>
+  );
+}
+
+function AreaDropdown({ value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (ref.current && !ref.current.contains(e.target)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className={`input-dark font-bold flex items-center justify-between w-full text-left ${
+          value ? "text-white" : "text-gray-500"
+        }`}
+      >
+        <span>{value || "Selecciona una opción"}</span>
+        <FiChevronDown
+          className={`text-gray-400 transition-transform ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {open && (
+        <ul className="absolute z-20 mt-2 w-full bg-gray-900 border border-gray-700 rounded-xl shadow-2xl shadow-black/60 overflow-hidden max-h-64 overflow-y-auto">
+          {AREAS.map((op) => (
+            <li key={op}>
+              <button
+                type="button"
+                onClick={() => {
+                  onChange(op);
+                  setOpen(false);
+                }}
+                className={`w-full text-left px-4 py-3 font-bold text-sm transition-colors ${
+                  value === op
+                    ? "bg-red-700 text-white"
+                    : "text-gray-200 hover:bg-red-700/20 hover:text-red-400"
+                }`}
+              >
+                {op}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
